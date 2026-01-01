@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -43,14 +43,20 @@ const Index = () => {
     return new Date(year, month, 0).getDate();
   }, [currentMonth]);
 
-  const [scheduleData, setScheduleData] = useState<DayData[]>(() => {
-    const data: DayData[] = [];
-    const [year, month] = currentMonth.split('-').map(Number);
+  const loadFromStorage = (month: string): DayData[] => {
+    const saved = localStorage.getItem(`schedule_${month}`);
+    if (saved) {
+      return JSON.parse(saved);
+    }
     
-    for (let day = 1; day <= daysInMonth; day++) {
+    const data: DayData[] = [];
+    const [year, m] = month.split('-').map(Number);
+    const days = new Date(year, m, 0).getDate();
+    
+    for (let day = 1; day <= days; day++) {
       EMPLOYEES.forEach(employee => {
         data.push({
-          date: `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`,
+          date: `${year}-${String(m).padStart(2, '0')}-${String(day).padStart(2, '0')}`,
           employee,
           shift1Start: '09:00',
           shift1End: '18:00',
@@ -63,7 +69,13 @@ const Index = () => {
       });
     }
     return data;
-  });
+  };
+
+  const [scheduleData, setScheduleData] = useState<DayData[]>(() => loadFromStorage(currentMonth));
+
+  useEffect(() => {
+    localStorage.setItem(`schedule_${currentMonth}`, JSON.stringify(scheduleData));
+  }, [scheduleData, currentMonth]);
 
   const calculateHours = (start: string, end: string): number => {
     if (!start || !end) return 0;
@@ -82,11 +94,14 @@ const Index = () => {
   };
 
   const updateSchedule = (date: string, employee: string, field: keyof DayData, value: any) => {
-    setScheduleData(prev => prev.map(item => 
-      item.date === date && item.employee === employee
-        ? { ...item, [field]: value }
-        : item
-    ));
+    setScheduleData(prev => {
+      const updated = prev.map(item => 
+        item.date === date && item.employee === employee
+          ? { ...item, [field]: value }
+          : item
+      );
+      return updated;
+    });
   };
 
   const getMonthTotal = (employee: string): number => {
@@ -112,27 +127,9 @@ const Index = () => {
   const changeMonth = (direction: number) => {
     const [year, month] = currentMonth.split('-').map(Number);
     const newDate = new Date(year, month - 1 + direction, 1);
-    setCurrentMonth(`${newDate.getFullYear()}-${String(newDate.getMonth() + 1).padStart(2, '0')}`);
-    
-    const newDaysInMonth = new Date(newDate.getFullYear(), newDate.getMonth() + 1, 0).getDate();
-    const data: DayData[] = [];
-    
-    for (let day = 1; day <= newDaysInMonth; day++) {
-      EMPLOYEES.forEach(employee => {
-        data.push({
-          date: `${newDate.getFullYear()}-${String(newDate.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`,
-          employee,
-          shift1Start: '09:00',
-          shift1End: '18:00',
-          hasShift2: false,
-          shift2Start: '14:00',
-          shift2End: '18:00',
-          orders: 0,
-          bonus: 0
-        });
-      });
-    }
-    setScheduleData(data);
+    const newMonth = `${newDate.getFullYear()}-${String(newDate.getMonth() + 1).padStart(2, '0')}`;
+    setCurrentMonth(newMonth);
+    setScheduleData(loadFromStorage(newMonth));
   };
 
   return (

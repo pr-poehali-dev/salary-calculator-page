@@ -1,0 +1,33 @@
+{
+  "tests": [
+    {
+      "name": "Get schedule for current month",
+      "method": "GET",
+      "path": "/?month=2026-01",
+      "expectedStatus": 200,
+      "expectedBody": [],
+      "bodyMatcher": "type"
+    },
+    {
+      "name": "Save schedule entry",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "date": "2026-01-15",
+        "employee": "Никита",
+        "shift1Start": "09:00",
+        "shift1End": "18:00",
+        "hasShift2": false,
+        "shift2Start": "14:00",
+        "shift2End": "18:00",
+        "orders": 5,
+        "bonus": 10
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "success": true
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}
