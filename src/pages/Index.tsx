@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import Icon from '@/components/ui/icon';
 import {
   Table,
@@ -17,6 +18,7 @@ interface DayData {
   employee: string;
   shift1Start: string;
   shift1End: string;
+  hasShift2: boolean;
   shift2Start: string;
   shift2End: string;
   orders: number;
@@ -25,9 +27,9 @@ interface DayData {
 
 const EMPLOYEES = ['Никита', 'Андрей', 'Денис'];
 const COLORS = {
-  'Никита': 'from-purple-500 to-pink-500',
-  'Андрей': 'from-blue-500 to-cyan-500',
-  'Денис': 'from-orange-500 to-red-500'
+  'Никита': 'bg-purple-500',
+  'Андрей': 'bg-blue-500',
+  'Денис': 'bg-orange-500'
 };
 
 const Index = () => {
@@ -51,7 +53,8 @@ const Index = () => {
           date: `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`,
           employee,
           shift1Start: '09:00',
-          shift1End: '13:00',
+          shift1End: '18:00',
+          hasShift2: false,
           shift2Start: '14:00',
           shift2End: '18:00',
           orders: 0,
@@ -73,7 +76,7 @@ const Index = () => {
 
   const calculateDaySalary = (day: DayData): number => {
     const hours1 = calculateHours(day.shift1Start, day.shift1End);
-    const hours2 = calculateHours(day.shift2Start, day.shift2End);
+    const hours2 = day.hasShift2 ? calculateHours(day.shift2Start, day.shift2End) : 0;
     const totalHours = hours1 + hours2;
     return (totalHours * 250) + (day.orders * (50 + day.bonus));
   };
@@ -120,7 +123,8 @@ const Index = () => {
           date: `${newDate.getFullYear()}-${String(newDate.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`,
           employee,
           shift1Start: '09:00',
-          shift1End: '13:00',
+          shift1End: '18:00',
+          hasShift2: false,
           shift2Start: '14:00',
           shift2End: '18:00',
           orders: 0,
@@ -132,52 +136,47 @@ const Index = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted p-4 md:p-8">
-      <div className="max-w-[1800px] mx-auto">
-        <div className="text-center mb-8 animate-fade-in">
-          <h1 className="text-4xl md:text-5xl font-bold font-heading mb-4 bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-transparent animate-gradient bg-gradient">
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted p-2 md:p-4">
+      <div className="max-w-[1600px] mx-auto">
+        <div className="text-center mb-4 animate-fade-in">
+          <h1 className="text-3xl md:text-4xl font-bold font-heading mb-2 bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-transparent">
             💰 Калькулятор зарплаты
           </h1>
-          <p className="text-muted-foreground text-lg">
-            Планирование расписания и расчёт зарплаты на месяц вперёд
-          </p>
         </div>
 
-        <Card className="p-6 mb-6 bg-gradient-to-br from-card to-muted/50 backdrop-blur-sm">
-          <div className="flex items-center justify-between mb-6">
+        <Card className="p-3 mb-4 bg-card/95 backdrop-blur-sm">
+          <div className="flex items-center justify-between mb-3">
             <Button
               onClick={() => changeMonth(-1)}
               variant="outline"
-              className="hover:scale-105 transition-transform"
+              size="sm"
             >
-              <Icon name="ChevronLeft" size={20} />
-              Предыдущий
+              <Icon name="ChevronLeft" size={16} />
             </Button>
-            <h2 className="text-2xl font-heading font-bold">
+            <h2 className="text-lg font-heading font-bold">
               {new Date(currentMonth + '-01').toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' })}
             </h2>
             <Button
               onClick={() => changeMonth(1)}
               variant="outline"
-              className="hover:scale-105 transition-transform"
+              size="sm"
             >
-              Следующий
-              <Icon name="ChevronRight" size={20} />
+              <Icon name="ChevronRight" size={16} />
             </Button>
           </div>
 
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto -mx-3">
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/50">
-                  <TableHead className="font-bold text-center">Дата</TableHead>
-                  <TableHead className="font-bold text-center">Имя</TableHead>
-                  <TableHead className="font-bold text-center">Смена 1</TableHead>
-                  <TableHead className="font-bold text-center">Смена 2</TableHead>
-                  <TableHead className="font-bold text-center">Часы</TableHead>
-                  <TableHead className="font-bold text-center">Заказы</TableHead>
-                  <TableHead className="font-bold text-center">Доплата</TableHead>
-                  <TableHead className="font-bold text-center">Итого за день</TableHead>
+                  <TableHead className="font-bold text-xs p-2 text-center sticky left-0 bg-muted/50 z-10">Дата</TableHead>
+                  <TableHead className="font-bold text-xs p-2 text-center">Имя</TableHead>
+                  <TableHead className="font-bold text-xs p-2 text-center">Время работы</TableHead>
+                  <TableHead className="font-bold text-xs p-2 text-center">+Смена</TableHead>
+                  <TableHead className="font-bold text-xs p-2 text-center">Час.</TableHead>
+                  <TableHead className="font-bold text-xs p-2 text-center">Зак.</TableHead>
+                  <TableHead className="font-bold text-xs p-2 text-center">Допл.</TableHead>
+                  <TableHead className="font-bold text-xs p-2 text-center">Итого</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -185,82 +184,88 @@ const Index = () => {
                   groupedData[date].map((dayData, idx) => (
                     <TableRow 
                       key={`${date}-${dayData.employee}`}
-                      className="hover:bg-muted/30 transition-colors"
+                      className="hover:bg-muted/20 transition-colors"
                     >
                       {idx === 0 && (
                         <TableCell 
                           rowSpan={EMPLOYEES.length} 
-                          className="font-semibold text-center align-middle bg-muted/20"
+                          className="font-semibold text-xs p-2 text-center align-middle bg-muted/20 sticky left-0 z-10"
                         >
                           {formatDate(date)}
                         </TableCell>
                       )}
-                      <TableCell className="text-center">
-                        <div className="flex items-center justify-center gap-2">
-                          <div className={`w-6 h-6 rounded-full bg-gradient-to-br ${COLORS[dayData.employee]} flex items-center justify-center text-xs font-bold text-white`}>
-                            {dayData.employee[0]}
+                      <TableCell className="p-2">
+                        <div className="flex items-center gap-1">
+                          <div className={`w-4 h-4 rounded-full ${COLORS[dayData.employee]}`} />
+                          <span className="text-xs font-medium">{dayData.employee}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="p-2">
+                        <div className="flex flex-col gap-1">
+                          <div className="flex gap-1 items-center">
+                            <Input
+                              type="time"
+                              value={dayData.shift1Start}
+                              onChange={(e) => updateSchedule(date, dayData.employee, 'shift1Start', e.target.value)}
+                              className="w-20 h-7 text-xs p-1"
+                            />
+                            <span className="text-xs">–</span>
+                            <Input
+                              type="time"
+                              value={dayData.shift1End}
+                              onChange={(e) => updateSchedule(date, dayData.employee, 'shift1End', e.target.value)}
+                              className="w-20 h-7 text-xs p-1"
+                            />
                           </div>
-                          <span className="font-medium">{dayData.employee}</span>
+                          {dayData.hasShift2 && (
+                            <div className="flex gap-1 items-center">
+                              <Input
+                                type="time"
+                                value={dayData.shift2Start}
+                                onChange={(e) => updateSchedule(date, dayData.employee, 'shift2Start', e.target.value)}
+                                className="w-20 h-7 text-xs p-1"
+                              />
+                              <span className="text-xs">–</span>
+                              <Input
+                                type="time"
+                                value={dayData.shift2End}
+                                onChange={(e) => updateSchedule(date, dayData.employee, 'shift2End', e.target.value)}
+                                className="w-20 h-7 text-xs p-1"
+                              />
+                            </div>
+                          )}
                         </div>
                       </TableCell>
-                      <TableCell>
-                        <div className="flex gap-1 items-center justify-center">
-                          <Input
-                            type="time"
-                            value={dayData.shift1Start}
-                            onChange={(e) => updateSchedule(date, dayData.employee, 'shift1Start', e.target.value)}
-                            className="w-24 h-8 text-xs"
-                          />
-                          <span>–</span>
-                          <Input
-                            type="time"
-                            value={dayData.shift1End}
-                            onChange={(e) => updateSchedule(date, dayData.employee, 'shift1End', e.target.value)}
-                            className="w-24 h-8 text-xs"
-                          />
-                        </div>
+                      <TableCell className="p-2 text-center">
+                        <Checkbox
+                          checked={dayData.hasShift2}
+                          onCheckedChange={(checked) => updateSchedule(date, dayData.employee, 'hasShift2', checked)}
+                        />
                       </TableCell>
-                      <TableCell>
-                        <div className="flex gap-1 items-center justify-center">
-                          <Input
-                            type="time"
-                            value={dayData.shift2Start}
-                            onChange={(e) => updateSchedule(date, dayData.employee, 'shift2Start', e.target.value)}
-                            className="w-24 h-8 text-xs"
-                          />
-                          <span>–</span>
-                          <Input
-                            type="time"
-                            value={dayData.shift2End}
-                            onChange={(e) => updateSchedule(date, dayData.employee, 'shift2End', e.target.value)}
-                            className="w-24 h-8 text-xs"
-                          />
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-center font-semibold">
+                      <TableCell className="text-center font-semibold text-xs p-2">
                         {(calculateHours(dayData.shift1Start, dayData.shift1End) + 
-                          calculateHours(dayData.shift2Start, dayData.shift2End)).toFixed(1)} ч
+                          (dayData.hasShift2 ? calculateHours(dayData.shift2Start, dayData.shift2End) : 0)).toFixed(1)}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="p-2">
                         <Input
                           type="number"
                           min="0"
                           value={dayData.orders}
                           onChange={(e) => updateSchedule(date, dayData.employee, 'orders', Number(e.target.value))}
-                          className="w-20 h-8 text-center mx-auto"
+                          className="w-14 h-7 text-xs text-center p-1"
                         />
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="p-2">
                         <Input
                           type="number"
                           min="0"
                           value={dayData.bonus}
                           onChange={(e) => updateSchedule(date, dayData.employee, 'bonus', Number(e.target.value))}
-                          className="w-20 h-8 text-center mx-auto"
+                          className="w-14 h-7 text-xs text-center p-1"
                         />
                       </TableCell>
-                      <TableCell className="text-center">
-                        <span className={`font-bold text-lg bg-gradient-to-r ${COLORS[dayData.employee]} bg-clip-text text-transparent`}>
+                      <TableCell className="text-center p-2">
+                        <span className="font-bold text-sm text-primary">
                           {calculateDaySalary(dayData).toFixed(0)}₽
                         </span>
                       </TableCell>
@@ -272,41 +277,33 @@ const Index = () => {
           </div>
         </Card>
 
-        <Card className="p-8 bg-gradient-to-br from-card to-muted/50 backdrop-blur-sm animate-fade-in border-primary/20">
-          <h3 className="text-3xl font-heading font-bold mb-6 flex items-center gap-3">
-            <Icon name="TrendingUp" size={32} className="text-primary" />
-            Итого за месяц
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            {EMPLOYEES.map((emp, index) => (
-              <div
-                key={index}
-                className="p-6 rounded-lg bg-gradient-to-br from-background to-muted/30 border border-border hover:scale-105 transition-transform duration-300"
-              >
-                <div className="flex items-center gap-3 mb-3">
-                  <div className={`w-10 h-10 rounded-full bg-gradient-to-br ${COLORS[emp]} flex items-center justify-center text-lg font-bold text-white`}>
-                    {emp[0]}
-                  </div>
-                  <span className="font-semibold">{emp}</span>
-                </div>
-                <div className={`text-3xl font-heading font-bold bg-gradient-to-r ${COLORS[emp]} bg-clip-text text-transparent`}>
-                  {getMonthTotal(emp).toLocaleString()}₽
-                </div>
-                <div className="text-sm text-muted-foreground mt-1">за весь месяц</div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {EMPLOYEES.map((emp) => (
+            <Card
+              key={emp}
+              className="p-4 bg-card/95 backdrop-blur-sm hover:scale-105 transition-transform"
+            >
+              <div className="flex items-center gap-2 mb-2">
+                <div className={`w-8 h-8 rounded-full ${COLORS[emp]}`} />
+                <span className="font-semibold text-sm">{emp}</span>
               </div>
-            ))}
-            <div className="p-6 rounded-lg bg-gradient-to-br from-primary/20 to-accent/20 border-2 border-primary hover:scale-105 transition-transform duration-300">
-              <div className="flex items-center gap-2 mb-3">
-                <Icon name="Wallet" size={24} className="text-primary" />
-                <span className="font-semibold">Всего</span>
+              <div className="text-2xl font-heading font-bold text-primary">
+                {getMonthTotal(emp).toLocaleString()}₽
               </div>
-              <div className="text-3xl font-heading font-bold bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-transparent">
-                {EMPLOYEES.reduce((sum, emp) => sum + getMonthTotal(emp), 0).toLocaleString()}₽
-              </div>
-              <div className="text-sm text-muted-foreground mt-1">месячный фонд</div>
+              <div className="text-xs text-muted-foreground">за месяц</div>
+            </Card>
+          ))}
+          <Card className="p-4 bg-gradient-to-br from-primary/20 to-accent/20 border-2 border-primary hover:scale-105 transition-transform">
+            <div className="flex items-center gap-2 mb-2">
+              <Icon name="Wallet" size={20} className="text-primary" />
+              <span className="font-semibold text-sm">Всего</span>
             </div>
-          </div>
-        </Card>
+            <div className="text-2xl font-heading font-bold text-primary">
+              {EMPLOYEES.reduce((sum, emp) => sum + getMonthTotal(emp), 0).toLocaleString()}₽
+            </div>
+            <div className="text-xs text-muted-foreground">общий фонд</div>
+          </Card>
+        </div>
       </div>
     </div>
   );
