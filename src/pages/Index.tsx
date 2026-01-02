@@ -5,6 +5,13 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import Icon from '@/components/ui/icon';
 import TimePicker from '@/components/ui/time-picker';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '@/components/ui/sheet';
 
 interface DayData {
   date: string;
@@ -38,6 +45,7 @@ const Index = () => {
   const [saving, setSaving] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'edit' | 'view'>('view');
+  const [menuOpen, setMenuOpen] = useState(false);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const daysInMonth = useMemo(() => {
@@ -249,84 +257,115 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted">
       <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm border-b border-border shadow-sm">
-        <div className="max-w-7xl mx-auto p-3">
-          <div className="flex items-center justify-between mb-3">
-            <h1 className="text-xl md:text-2xl font-bold">💰 Расписание</h1>
-            {saving && (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Icon name="Cloud" size={16} className="animate-pulse" />
-                <span className="hidden md:inline">Сохранение...</span>
-              </div>
-            )}
-          </div>
+        <div className="max-w-7xl mx-auto px-3 py-2">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
+                <SheetTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    <Icon name="Menu" size={18} />
+                  </Button>
+                </SheetTrigger>
+                <SheetContent side="left">
+                  <SheetHeader>
+                    <SheetTitle>Меню</SheetTitle>
+                  </SheetHeader>
+                  <div className="mt-6 space-y-4">
+                    {viewMode === 'view' && (
+                      <Button
+                        onClick={() => {
+                          setViewMode('edit');
+                          setMenuOpen(false);
+                        }}
+                        className="w-full"
+                        size="sm"
+                      >
+                        <Icon name="Edit" size={16} className="mr-2" />
+                        Редактировать расписание
+                      </Button>
+                    )}
 
-          <div className="flex items-center gap-2 mb-3">
-            <Button onClick={() => changeMonth(-1)} variant="outline" size="sm">
-              <Icon name="ChevronLeft" size={16} />
-            </Button>
-            <div className="flex-1 text-center font-semibold text-sm md:text-base">
+                    {viewMode === 'edit' && (
+                      <>
+                        <Button
+                          onClick={() => {
+                            setViewMode('view');
+                            setMenuOpen(false);
+                          }}
+                          variant="outline"
+                          className="w-full"
+                          size="sm"
+                        >
+                          <Icon name="Eye" size={16} className="mr-2" />
+                          Вернуться к просмотру
+                        </Button>
+                        <Button
+                          onClick={() => {
+                            clearAllData();
+                            setMenuOpen(false);
+                          }}
+                          variant="outline"
+                          className="w-full text-destructive hover:text-destructive"
+                          size="sm"
+                        >
+                          <Icon name="Trash2" size={16} className="mr-2" />
+                          Очистить все данные
+                        </Button>
+                      </>
+                    )}
+
+                    <div className="pt-4 border-t">
+                      <p className="text-sm font-semibold mb-3">Фильтр по сотруднику</p>
+                      <div className="space-y-2">
+                        <Button
+                          variant={selectedEmployee === null ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => {
+                            setSelectedEmployee(null);
+                            setMenuOpen(false);
+                          }}
+                          className="w-full justify-start"
+                        >
+                          Все сотрудники
+                        </Button>
+                        {EMPLOYEES.map(emp => (
+                          <Button
+                            key={emp}
+                            variant={selectedEmployee === emp ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => {
+                              setSelectedEmployee(emp);
+                              setMenuOpen(false);
+                            }}
+                            className="w-full justify-start"
+                          >
+                            <div className={`w-3 h-3 rounded-full ${COLORS[emp]} mr-2`} />
+                            {emp}
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </SheetContent>
+              </Sheet>
+
+              <Button onClick={() => changeMonth(-1)} variant="outline" size="sm">
+                <Icon name="ChevronLeft" size={16} />
+              </Button>
+            </div>
+
+            <div className="flex-1 text-center font-semibold text-sm">
               {new Date(currentMonth + '-01').toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' })}
             </div>
-            <Button onClick={() => changeMonth(1)} variant="outline" size="sm">
-              <Icon name="ChevronRight" size={16} />
-            </Button>
-          </div>
 
-          {viewMode === 'view' && (
-            <Button
-              onClick={() => setViewMode('edit')}
-              className="w-full mb-3"
-              size="sm"
-            >
-              <Icon name="Edit" size={16} className="mr-2" />
-              Редактировать расписание
-            </Button>
-          )}
-
-          {viewMode === 'edit' && (
-            <div className="space-y-2 mb-3">
-              <Button
-                onClick={() => setViewMode('view')}
-                variant="outline"
-                className="w-full"
-                size="sm"
-              >
-                <Icon name="Eye" size={16} className="mr-2" />
-                Вернуться к просмотру
+            <div className="flex items-center gap-2">
+              <Button onClick={() => changeMonth(1)} variant="outline" size="sm">
+                <Icon name="ChevronRight" size={16} />
               </Button>
-              <Button
-                onClick={clearAllData}
-                variant="outline"
-                className="w-full text-destructive hover:text-destructive"
-                size="sm"
-              >
-                <Icon name="Trash2" size={16} className="mr-2" />
-                Очистить все данные
-              </Button>
+              {saving && (
+                <Icon name="Cloud" size={16} className="animate-pulse text-muted-foreground" />
+              )}
             </div>
-          )}
-
-          <div className="flex gap-2 overflow-x-auto pb-2">
-            <Button
-              variant={selectedEmployee === null ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setSelectedEmployee(null)}
-              className="whitespace-nowrap"
-            >
-              Все
-            </Button>
-            {EMPLOYEES.map(emp => (
-              <Button
-                key={emp}
-                variant={selectedEmployee === emp ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setSelectedEmployee(emp)}
-                className="whitespace-nowrap"
-              >
-                <div className={`w-3 h-3 rounded-full ${COLORS[emp]} mr-2`} />
-                {emp}
-              </Button>
-            ))}
           </div>
         </div>
       </div>
