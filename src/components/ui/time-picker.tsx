@@ -13,7 +13,6 @@ export const TimePicker = ({ value, onChange, className = '' }: TimePickerProps)
   const [position, setPosition] = useState({ top: 0, left: 0, width: 0 });
   const buttonRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const preventCloseRef = useRef(false);
 
   const hourOptions = [
     '07', '08', '09', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23', '00', '01'
@@ -30,14 +29,11 @@ export const TimePicker = ({ value, onChange, className = '' }: TimePickerProps)
     }
   };
 
-  const handleOpen = () => {
-    preventCloseRef.current = true;
-    setIsOpen(true);
-    updatePosition();
-    
-    setTimeout(() => {
-      preventCloseRef.current = false;
-    }, 300);
+  const handleToggle = () => {
+    if (!isOpen) {
+      updatePosition();
+    }
+    setIsOpen(!isOpen);
   };
 
   const handleSelect = (time: string) => {
@@ -53,9 +49,7 @@ export const TimePicker = ({ value, onChange, className = '' }: TimePickerProps)
   useEffect(() => {
     if (!isOpen) return;
 
-    const handleClick = (e: MouseEvent | TouchEvent) => {
-      if (preventCloseRef.current) return;
-
+    const handleClick = (e: Event) => {
       const target = e.target as Node;
       
       if (
@@ -68,14 +62,12 @@ export const TimePicker = ({ value, onChange, className = '' }: TimePickerProps)
       setIsOpen(false);
     };
 
-    setTimeout(() => {
-      document.addEventListener('mousedown', handleClick, true);
-      document.addEventListener('touchstart', handleClick, true);
-    }, 100);
+    document.addEventListener('click', handleClick, true);
+    document.addEventListener('touchend', handleClick, true);
 
     return () => {
-      document.removeEventListener('mousedown', handleClick, true);
-      document.removeEventListener('touchstart', handleClick, true);
+      document.removeEventListener('click', handleClick, true);
+      document.removeEventListener('touchend', handleClick, true);
     };
   }, [isOpen]);
 
@@ -100,7 +92,7 @@ export const TimePicker = ({ value, onChange, className = '' }: TimePickerProps)
         <button
           ref={buttonRef}
           type="button"
-          onClick={handleOpen}
+          onClick={handleToggle}
           className="w-full h-10 px-3 py-2 text-sm rounded-xl border border-gray-200 dark:border-slate-700 bg-white/80 dark:bg-slate-800/80 hover:bg-white dark:hover:bg-slate-800 hover:border-gray-300 dark:hover:border-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all text-left flex items-center justify-between backdrop-blur-sm"
         >
           <span className={value ? 'text-gray-900 dark:text-gray-100 font-medium' : 'text-gray-400 dark:text-slate-500'}>
