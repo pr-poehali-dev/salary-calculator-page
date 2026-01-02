@@ -38,6 +38,7 @@ const Index = () => {
   const [saving, setSaving] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'edit' | 'view'>('view');
+  const saveTimeoutRef = useState<NodeJS.Timeout | null>(null)[0];
 
   const daysInMonth = useMemo(() => {
     const [year, month] = currentMonth.split('-').map(Number);
@@ -121,8 +122,12 @@ const Index = () => {
         );
       }
       
-      // Сохраняем весь массив, чтобы не потерять данные других дней
-      saveToDatabase(updated);
+      // Сохраняем с задержкой, чтобы не перегружать сервер
+      if (saveTimeoutRef) clearTimeout(saveTimeoutRef);
+      const newTimeout = setTimeout(() => {
+        saveToDatabase(updated);
+      }, 500);
+      Object.assign(saveTimeoutRef as any, newTimeout);
       
       return updated;
     });

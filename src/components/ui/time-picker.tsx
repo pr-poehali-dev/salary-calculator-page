@@ -78,11 +78,11 @@ export const TimePicker = ({ value, onChange, className = '' }: TimePickerProps)
                   key={h}
                   type="button"
                   onClick={() => {
-                    setHours(h);
-                    setMinutes('00');
+                    onChange(`${h}:00`);
+                    setIsOpen(false);
                   }}
                   className={`w-full px-4 py-2 text-base text-center hover:bg-accent transition-colors ${
-                    hours === h ? 'bg-primary text-primary-foreground font-semibold' : ''
+                    value === `${h}:00` ? 'bg-primary text-primary-foreground font-semibold' : ''
                   }`}
                 >
                   {h}:00
@@ -97,17 +97,9 @@ export const TimePicker = ({ value, onChange, className = '' }: TimePickerProps)
               variant="outline"
               size="sm"
               onClick={handleClear}
-              className="flex-1"
+              className="w-full"
             >
               Очистить
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              onClick={handleApply}
-              className="flex-1"
-            >
-              Применить
             </Button>
           </div>
         </div>
