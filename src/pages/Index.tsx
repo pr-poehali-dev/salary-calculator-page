@@ -173,6 +173,34 @@ const Index = () => {
     setCurrentMonth(newMonth);
   };
 
+  const clearAllData = async () => {
+    if (!confirm('Удалить все данные за текущий месяц?')) return;
+    
+    const emptyData: DayData[] = [];
+    const [year, m] = currentMonth.split('-').map(Number);
+    const days = new Date(year, m, 0).getDate();
+    
+    for (let day = 1; day <= days; day++) {
+      const dateStr = `${year}-${String(m).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      EMPLOYEES.forEach((employee) => {
+        emptyData.push({
+          date: dateStr,
+          employee,
+          shift1Start: '',
+          shift1End: '',
+          hasShift2: false,
+          shift2Start: '',
+          shift2End: '',
+          orders: 0,
+          bonus: 0
+        });
+      });
+    }
+    
+    setScheduleData(emptyData);
+    await saveToDatabase(emptyData);
+  };
+
   const filteredData = useMemo(() => {
     if (viewMode === 'view') {
       // В режиме просмотра показываем только заполненные дни
@@ -252,15 +280,26 @@ const Index = () => {
           )}
 
           {viewMode === 'edit' && (
-            <Button
-              onClick={() => setViewMode('view')}
-              variant="outline"
-              className="w-full mb-3"
-              size="sm"
-            >
-              <Icon name="Eye" size={16} className="mr-2" />
-              Вернуться к просмотру
-            </Button>
+            <div className="space-y-2 mb-3">
+              <Button
+                onClick={() => setViewMode('view')}
+                variant="outline"
+                className="w-full"
+                size="sm"
+              >
+                <Icon name="Eye" size={16} className="mr-2" />
+                Вернуться к просмотру
+              </Button>
+              <Button
+                onClick={clearAllData}
+                variant="outline"
+                className="w-full text-destructive hover:text-destructive"
+                size="sm"
+              >
+                <Icon name="Trash2" size={16} className="mr-2" />
+                Очистить все данные
+              </Button>
+            </div>
           )}
 
           <div className="flex gap-2 overflow-x-auto pb-2">
