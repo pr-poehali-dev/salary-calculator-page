@@ -27,22 +27,28 @@ export const TimePicker = ({ value, onChange, className = '' }: TimePickerProps)
   }, [value]);
 
   useEffect(() => {
+    if (!isOpen) return;
+
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as HTMLElement;
       
-      // Проверяем, что клик не по нашей кнопке и не по нашему dropdown
-      const clickedPickerId = target.closest('[data-picker-id]')?.getAttribute('data-picker-id');
+      // Проверяем, что клик не внутри нашего компонента
+      const clickedElement = target.closest('[data-picker-id]');
+      const clickedPickerId = clickedElement?.getAttribute('data-picker-id');
       
-      if (isOpen && clickedPickerId !== pickerId) {
+      // Закрываем только если клик вне нашего picker'а
+      if (!clickedPickerId || clickedPickerId !== pickerId) {
         setIsOpen(false);
       }
     };
 
-    if (isOpen) {
+    // Добавляем обработчик с задержкой, чтобы не поймать клик открытия
+    const timeoutId = setTimeout(() => {
       document.addEventListener('mousedown', handleClickOutside);
-    }
+    }, 0);
 
     return () => {
+      clearTimeout(timeoutId);
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [isOpen, pickerId]);
