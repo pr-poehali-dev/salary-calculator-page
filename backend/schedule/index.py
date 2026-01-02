@@ -4,154 +4,110 @@ import psycopg2
 from datetime import datetime
 
 def handler(event: dict, context) -> dict:
-    """
-    API для управления расписанием сотрудников.
-    Сохраняет и загружает данные о сменах, заказах и доплатах.
-    """
+    """API для управления графиком смен сотрудников"""
     method = event.get('httpMethod', 'GET')
-    
+
     if method == 'OPTIONS':
         return {
             'statusCode': 200,
             'headers': {
                 'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+                'Access-Control-Allow-Methods': 'GET, POST, PUT, OPTIONS',
                 'Access-Control-Allow-Headers': 'Content-Type'
             },
-            'body': '',
-            'isBase64Encoded': False
+            'body': ''
         }
-    
-    db_url = os.environ.get('DATABASE_URL')
-    schema = os.environ.get('MAIN_DB_SCHEMA')
-    
+
+    dsn = os.environ.get('DATABASE_URL')
+    conn = psycopg2.connect(dsn)
+    cur = conn.cursor()
+
     try:
-        conn = psycopg2.connect(db_url)
-        cur = conn.cursor()
-        cur.execute(f"SET search_path TO {schema}")
-        
         if method == 'GET':
-            month = event.get('queryStringParameters', {}).get('month')
+            month = event.get('queryStringParameters', {}).get('month', '')
             
             if month:
-                cur.execute(
-                    f"SELECT date, employee, shift1_start, shift1_end, has_shift2, shift2_start, shift2_end, orders, bonus FROM schedule WHERE TO_CHAR(date, 'YYYY-MM') = '{month}' ORDER BY date, employee"
-                )
+                year, m = month.split('-')
+                cur.execute("""
+                    SELECT date, employee, shift1_start, shift1_end, 
+                           has_shift2, shift2_start, shift2_end, orders, bonus
+                    FROM schedule 
+                    WHERE EXTRACT(YEAR FROM date) = %s 
+                    AND EXTRACT(MONTH FROM date) = %s
+                    ORDER BY date, employee
+                """, (int(year), int(m)))
             else:
-                cur.execute(
-                    f"SELECT date, employee, shift1_start, shift1_end, has_shift2, shift2_start, shift2_end, orders, bonus FROM schedule ORDER BY date DESC LIMIT 100"
-                )
+                cur.execute("""
+                    SELECT date, employee, shift1_start, shift1_end, 
+                           has_shift2, shift2_start, shift2_end, orders, bonus
+                    FROM schedule 
+                    ORDER BY date DESC, employee
+                    LIMIT 100
+                """)
             
             rows = cur.fetchall()
-            data = []
+            result = []
             for row in rows:
-                data.append({
-                    'date': str(row[0]),
+                result.append({
+                    'date': row[0].strftime('%Y-%m-%d'),
                     'employee': row[1],
-                    'shift1Start': str(row[2]),
-                    'shift1End': str(row[3]),
+                    'shift1Start': str(row[2]) if row[2] else '',
+                    'shift1End': str(row[3]) if row[3] else '',
                     'hasShift2': row[4],
-                    'shift2Start': str(row[5]) if row[5] else '14:00',
-                    'shift2End': str(row[6]) if row[6] else '18:00',
+                    'shift2Start': str(row[5]) if row[5] else '',
+                    'shift2End': str(row[6]) if row[6] else '',
                     'orders': row[7],
                     'bonus': row[8]
                 })
             
-            cur.close()
-            conn.close()
-            
             return {
                 'statusCode': 200,
-                'headers': {
-                    'Content-Type': 'application/json',
-                    'Access-Control-Allow-Origin': '*'
-                },
-                'body': json.dumps(data),
-                'isBase64Encoded': False
+                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                'body': json.dumps(result)
             }
-        
-        elif method == 'POST' or method == 'PUT':
-            body = json.loads(event.get('body', '{}'))
-            date = body.get('date')
-            employee = body.get('employee')
-            shift1_start = body.get('shift1Start', '09:00')
-            shift1_end = body.get('shift1End', '18:00')
-            has_shift2 = body.get('hasShift2', False)
-            shift2_start = body.get('shift2Start', '14:00')
-            shift2_end = body.get('shift2End', '18:00')
-            orders = body.get('orders', 0)
-            bonus = body.get('bonus', 0)
+
+        elif method == 'POST':
+            data = json.loads(event.get('body', '{}'))
             
-            cur.execute(
-                f"""
-                INSERT INTO schedule (date, employee, shift1_start, shift1_end, has_shift2, shift2_start, shift2_end, orders, bonus, updated_at)
-                VALUES ('{date}', '{employee}', '{shift1_start}', '{shift1_end}', {has_shift2}, '{shift2_start}', '{shift2_end}', {orders}, {bonus}, NOW())
+            cur.execute("""
+                INSERT INTO schedule 
+                (date, employee, shift1_start, shift1_end, has_shift2, shift2_start, shift2_end, orders, bonus)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (date, employee) 
                 DO UPDATE SET 
-                    shift1_start = '{shift1_start}',
-                    shift1_end = '{shift1_end}',
-                    has_shift2 = {has_shift2},
-                    shift2_start = '{shift2_start}',
-                    shift2_end = '{shift2_end}',
-                    orders = {orders},
-                    bonus = {bonus},
-                    updated_at = NOW()
-                """
-            )
+                    shift1_start = EXCLUDED.shift1_start,
+                    shift1_end = EXCLUDED.shift1_end,
+                    has_shift2 = EXCLUDED.has_shift2,
+                    shift2_start = EXCLUDED.shift2_start,
+                    shift2_end = EXCLUDED.shift2_end,
+                    orders = EXCLUDED.orders,
+                    bonus = EXCLUDED.bonus,
+                    updated_at = CURRENT_TIMESTAMP
+            """, (
+                data['date'],
+                data['employee'],
+                data.get('shift1Start') or None,
+                data.get('shift1End') or None,
+                data.get('hasShift2', False),
+                data.get('shift2Start') or None,
+                data.get('shift2End') or None,
+                data.get('orders', 0),
+                data.get('bonus', 0)
+            ))
             conn.commit()
-            cur.close()
-            conn.close()
             
             return {
                 'statusCode': 200,
-                'headers': {
-                    'Content-Type': 'application/json',
-                    'Access-Control-Allow-Origin': '*'
-                },
-                'body': json.dumps({'success': True}),
-                'isBase64Encoded': False
+                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                'body': json.dumps({'success': True})
             }
-        
-        elif method == 'DELETE':
-            body = json.loads(event.get('body', '{}'))
-            date = body.get('date')
-            employee = body.get('employee')
-            
-            cur.execute(
-                f"DELETE FROM schedule WHERE date = '{date}' AND employee = '{employee}'"
-            )
-            conn.commit()
-            cur.close()
-            conn.close()
-            
-            return {
-                'statusCode': 200,
-                'headers': {
-                    'Content-Type': 'application/json',
-                    'Access-Control-Allow-Origin': '*'
-                },
-                'body': json.dumps({'success': True}),
-                'isBase64Encoded': False
-            }
-        
-        else:
-            return {
-                'statusCode': 405,
-                'headers': {
-                    'Content-Type': 'application/json',
-                    'Access-Control-Allow-Origin': '*'
-                },
-                'body': json.dumps({'error': 'Method not allowed'}),
-                'isBase64Encoded': False
-            }
-    
-    except Exception as e:
-        return {
-            'statusCode': 500,
-            'headers': {
-                'Content-Type': 'application/json',
-                'Access-Control-Allow-Origin': '*'
-            },
-            'body': json.dumps({'error': str(e)}),
-            'isBase64Encoded': False
-        }
+
+    finally:
+        cur.close()
+        conn.close()
+
+    return {
+        'statusCode': 405,
+        'headers': {'Access-Control-Allow-Origin': '*'},
+        'body': json.dumps({'error': 'Method not allowed'})
+    }

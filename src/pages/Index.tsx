@@ -58,11 +58,11 @@ const Index = () => {
         data.push({
           date: `${year}-${String(m).padStart(2, '0')}-${String(day).padStart(2, '0')}`,
           employee,
-          shift1Start: '09:00',
-          shift1End: '18:00',
+          shift1Start: '',
+          shift1End: '',
           hasShift2: false,
-          shift2Start: '14:00',
-          shift2End: '18:00',
+          shift2Start: '',
+          shift2End: '',
           orders: 0,
           bonus: 0
         });
