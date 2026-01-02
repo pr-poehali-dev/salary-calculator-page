@@ -21,21 +21,12 @@ export const TimePicker = ({ value, onChange, className = '' }: TimePickerProps)
   const updatePosition = () => {
     if (buttonRef.current) {
       const rect = buttonRef.current.getBoundingClientRect();
-      const isMobile = window.innerWidth < 768;
       
-      if (isMobile) {
-        setPosition({
-          top: window.innerHeight / 2 - 200,
-          left: window.innerWidth / 2 - 150,
-          width: 300
-        });
-      } else {
-        setPosition({
-          top: rect.bottom + window.scrollY + 8,
-          left: rect.left + window.scrollX,
-          width: rect.width
-        });
-      }
+      setPosition({
+        top: rect.top + window.scrollY - 360,
+        left: rect.left + window.scrollX,
+        width: rect.width
+      });
     }
   };
 
@@ -115,35 +106,34 @@ export const TimePicker = ({ value, onChange, className = '' }: TimePickerProps)
       {isOpen && createPortal(
         <>
           <div 
-            className="fixed inset-0 z-[99998] bg-black/20"
+            className="fixed inset-0 z-[99998] bg-black/20 backdrop-blur-sm animate-in fade-in duration-200"
             onClick={() => setIsOpen(false)}
           />
           <div
             ref={dropdownRef}
-            className="fixed z-[99999] bg-white dark:bg-slate-800 border-2 border-gray-300 dark:border-slate-600 rounded-2xl shadow-2xl p-4"
+            className="absolute z-[99999] bg-white/98 dark:bg-slate-900/98 backdrop-blur-2xl border border-gray-200/50 dark:border-slate-700/50 rounded-3xl shadow-[0_20px_60px_-15px_rgba(0,0,0,0.4)] p-4 animate-in fade-in zoom-in-95 slide-in-from-top-2 duration-300"
             style={{
               top: `${position.top}px`,
               left: `${position.left}px`,
               width: `${position.width}px`,
-              minWidth: '200px',
-              maxHeight: '400px',
-              transform: window.innerWidth < 768 ? 'translate(-50%, -50%)' : 'none'
+              minWidth: '280px',
+              maxHeight: '380px'
             }}
           >
           <div className="mb-3">
-            <div className="text-xs text-gray-500 dark:text-slate-400 mb-2 text-center font-semibold uppercase tracking-wide">
+            <div className="text-xs font-semibold text-gray-400 dark:text-slate-500 mb-3 text-center uppercase tracking-wider">
               Выберите время
             </div>
-            <div className="max-h-72 overflow-y-auto border border-gray-200 dark:border-slate-700 rounded-xl bg-white/50 dark:bg-slate-900/50">
+            <div className="max-h-64 overflow-y-auto rounded-2xl bg-gray-50/80 dark:bg-slate-950/50 scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-slate-700">
               {hourOptions.map((h) => (
                 <button
                   key={h}
                   type="button"
                   onClick={() => handleSelect(`${h}:00`)}
-                  className={`w-full px-4 py-3 text-lg font-semibold text-center transition-all border-b border-gray-100 dark:border-slate-700 last:border-0 ${
+                  className={`w-full px-5 py-3.5 text-xl font-semibold text-center transition-all duration-200 border-b border-gray-200/50 dark:border-slate-800/50 last:border-0 ${
                     value === `${h}:00`
-                      ? 'bg-blue-600 text-white'
-                      : 'text-gray-900 dark:text-gray-100 hover:bg-blue-50 dark:hover:bg-slate-700 active:bg-blue-100 dark:active:bg-slate-600'
+                      ? 'bg-blue-500 text-white scale-[1.02]'
+                      : 'text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-slate-800/70 active:scale-95'
                   }`}
                 >
                   {h}:00
@@ -155,7 +145,7 @@ export const TimePicker = ({ value, onChange, className = '' }: TimePickerProps)
           <button
             type="button"
             onClick={handleClear}
-            className="w-full px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-slate-700 hover:bg-gray-200 dark:hover:bg-slate-600 rounded-xl transition-all"
+            className="w-full px-5 py-3 text-base font-semibold text-gray-600 dark:text-gray-400 bg-gray-100/80 dark:bg-slate-800/80 hover:bg-gray-200 dark:hover:bg-slate-700 rounded-2xl transition-all duration-200 active:scale-95"
           >
             Очистить
           </button>
