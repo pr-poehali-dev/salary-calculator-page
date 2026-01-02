@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -38,7 +38,7 @@ const Index = () => {
   const [saving, setSaving] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'edit' | 'view'>('view');
-  const saveTimeoutRef = useState<NodeJS.Timeout | null>(null)[0];
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const daysInMonth = useMemo(() => {
     const [year, month] = currentMonth.split('-').map(Number);
@@ -123,11 +123,10 @@ const Index = () => {
       }
       
       // Сохраняем с задержкой, чтобы не перегружать сервер
-      if (saveTimeoutRef) clearTimeout(saveTimeoutRef);
-      const newTimeout = setTimeout(() => {
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = setTimeout(() => {
         saveToDatabase(updated);
       }, 500);
-      Object.assign(saveTimeoutRef as any, newTimeout);
       
       return updated;
     });
