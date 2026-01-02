@@ -69,10 +69,10 @@ export const TimePicker = ({ value, onChange, className = '' }: TimePickerProps)
       </button>
 
       {isOpen && (
-        <div className="absolute z-50 mt-2 w-full bg-popover border border-border rounded-lg shadow-lg p-4">
+        <div className="absolute z-50 mt-2 w-full bg-card border border-border rounded-lg shadow-lg p-4">
           <div className="mb-4">
             <div className="text-xs text-muted-foreground mb-2 text-center">Часы (07:00 - 01:00)</div>
-            <div className="max-h-64 overflow-y-auto border border-border rounded-md">
+            <div className="max-h-64 overflow-y-auto border border-border rounded-md bg-background">
               {hourOptions.map((h) => (
                 <button
                   key={h}
@@ -81,8 +81,8 @@ export const TimePicker = ({ value, onChange, className = '' }: TimePickerProps)
                     onChange(`${h}:00`);
                     setIsOpen(false);
                   }}
-                  className={`w-full px-4 py-2 text-base text-center hover:bg-accent transition-colors ${
-                    value === `${h}:00` ? 'bg-primary text-primary-foreground font-semibold' : ''
+                  className={`w-full px-4 py-3 text-lg font-medium text-center hover:bg-accent hover:text-accent-foreground transition-colors ${
+                    value === `${h}:00` ? 'bg-primary text-primary-foreground' : 'text-foreground'
                   }`}
                 >
                   {h}:00
