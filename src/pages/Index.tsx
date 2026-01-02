@@ -123,21 +123,16 @@ const Index = () => {
             ? { ...item, bonus: value }
             : item
         );
-        
-        const itemsToSave = updated.filter(item => item.date === date);
-        saveToDatabase(itemsToSave);
       } else {
         updated = updated.map(item => 
           item.date === date && item.employee === employee
             ? { ...item, [field]: value }
             : item
         );
-        
-        const changedItem = updated.find(item => item.date === date && item.employee === employee);
-        if (changedItem) {
-          saveToDatabase([changedItem]);
-        }
       }
+      
+      // Сохраняем весь массив, чтобы не потерять данные других дней
+      saveToDatabase(updated);
       
       return updated;
     });
