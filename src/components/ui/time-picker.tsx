@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Button } from './button';
 import Icon from './icon';
 
@@ -12,6 +13,8 @@ export const TimePicker = ({ value, onChange, className = '' }: TimePickerProps)
   const [isOpen, setIsOpen] = useState(false);
   const [hours, setHours] = useState('09');
   const [minutes, setMinutes] = useState('00');
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, width: 0 });
+  const buttonRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -24,7 +27,12 @@ export const TimePicker = ({ value, onChange, className = '' }: TimePickerProps)
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      if (
+        dropdownRef.current && 
+        !dropdownRef.current.contains(event.target as Node) &&
+        buttonRef.current &&
+        !buttonRef.current.contains(event.target as Node)
+      ) {
         setIsOpen(false);
       }
     };
@@ -36,6 +44,30 @@ export const TimePicker = ({ value, onChange, className = '' }: TimePickerProps)
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (isOpen && buttonRef.current) {
+      const updatePosition = () => {
+        if (buttonRef.current) {
+          const rect = buttonRef.current.getBoundingClientRect();
+          setDropdownPosition({
+            top: rect.bottom + window.scrollY + 8,
+            left: rect.left + window.scrollX,
+            width: rect.width
+          });
+        }
+      };
+      
+      updatePosition();
+      window.addEventListener('scroll', updatePosition, true);
+      window.addEventListener('resize', updatePosition);
+      
+      return () => {
+        window.removeEventListener('scroll', updatePosition, true);
+        window.removeEventListener('resize', updatePosition);
+      };
+    }
   }, [isOpen]);
 
   const handleApply = () => {
@@ -56,20 +88,32 @@ export const TimePicker = ({ value, onChange, className = '' }: TimePickerProps)
   const minuteOptions = ['00'];
 
   return (
-    <div className={`relative ${className}`} ref={dropdownRef}>
-      <button
-        type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full h-10 px-3 py-2 text-sm rounded-xl border border-gray-200 dark:border-slate-700 bg-white/80 dark:bg-slate-800/80 hover:bg-white dark:hover:bg-slate-800 hover:border-gray-300 dark:hover:border-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all text-left flex items-center justify-between backdrop-blur-sm"
-      >
-        <span className={value ? 'text-gray-900 dark:text-gray-100 font-medium' : 'text-gray-400 dark:text-slate-500'}>
-          {value || 'Выбрать время'}
-        </span>
-        <Icon name="Clock" size={16} className="text-gray-400 dark:text-slate-500" />
-      </button>
+    <>
+      <div className={`relative ${className}`}>
+        <button
+          ref={buttonRef}
+          type="button"
+          onClick={() => setIsOpen(!isOpen)}
+          className="w-full h-10 px-3 py-2 text-sm rounded-xl border border-gray-200 dark:border-slate-700 bg-white/80 dark:bg-slate-800/80 hover:bg-white dark:hover:bg-slate-800 hover:border-gray-300 dark:hover:border-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all text-left flex items-center justify-between backdrop-blur-sm"
+        >
+          <span className={value ? 'text-gray-900 dark:text-gray-100 font-medium' : 'text-gray-400 dark:text-slate-500'}>
+            {value || 'Выбрать время'}
+          </span>
+          <Icon name="Clock" size={16} className="text-gray-400 dark:text-slate-500" />
+        </button>
+      </div>
 
-      {isOpen && (
-        <div className="absolute z-[9999] left-0 right-0 top-full mt-2 bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl border border-gray-200/60 dark:border-slate-700/60 rounded-2xl shadow-2xl p-4">
+      {isOpen && createPortal(
+        <div 
+          ref={dropdownRef}
+          className="fixed z-[99999] bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl border border-gray-200/60 dark:border-slate-700/60 rounded-2xl shadow-2xl p-4"
+          style={{
+            top: `${dropdownPosition.top}px`,
+            left: `${dropdownPosition.left}px`,
+            width: `${dropdownPosition.width}px`,
+            minWidth: '200px'
+          }}
+        >
           <div className="mb-4">
             <div className="text-xs text-gray-500 dark:text-slate-400 mb-2 text-center font-semibold uppercase tracking-wide">Выберите время</div>
             <div className="max-h-64 overflow-y-auto border border-gray-200 dark:border-slate-700 rounded-xl bg-white/50 dark:bg-slate-900/50 scrollbar-thin">
@@ -104,9 +148,10 @@ export const TimePicker = ({ value, onChange, className = '' }: TimePickerProps)
               Очистить
             </Button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
-    </div>
+    </>
   );
 };
 
