@@ -21,11 +21,21 @@ export const TimePicker = ({ value, onChange, className = '' }: TimePickerProps)
   const updatePosition = () => {
     if (buttonRef.current) {
       const rect = buttonRef.current.getBoundingClientRect();
-      setPosition({
-        top: rect.bottom + window.scrollY + 4,
-        left: rect.left + window.scrollX,
-        width: rect.width
-      });
+      const isMobile = window.innerWidth < 768;
+      
+      if (isMobile) {
+        setPosition({
+          top: window.innerHeight / 2 - 200,
+          left: window.innerWidth / 2 - 150,
+          width: 300
+        });
+      } else {
+        setPosition({
+          top: rect.bottom + window.scrollY + 8,
+          left: rect.left + window.scrollX,
+          width: rect.width
+        });
+      }
     }
   };
 
@@ -103,17 +113,23 @@ export const TimePicker = ({ value, onChange, className = '' }: TimePickerProps)
       </div>
 
       {isOpen && createPortal(
-        <div
-          ref={dropdownRef}
-          className="fixed z-[99999] bg-white dark:bg-slate-800 backdrop-blur-xl border border-gray-200 dark:border-slate-700 rounded-2xl shadow-2xl p-4"
-          style={{
-            top: `${position.top}px`,
-            left: `${position.left}px`,
-            width: `${position.width}px`,
-            minWidth: '200px',
-            maxHeight: '400px'
-          }}
-        >
+        <>
+          <div 
+            className="fixed inset-0 z-[99998] bg-black/20"
+            onClick={() => setIsOpen(false)}
+          />
+          <div
+            ref={dropdownRef}
+            className="fixed z-[99999] bg-white dark:bg-slate-800 border-2 border-gray-300 dark:border-slate-600 rounded-2xl shadow-2xl p-4"
+            style={{
+              top: `${position.top}px`,
+              left: `${position.left}px`,
+              width: `${position.width}px`,
+              minWidth: '200px',
+              maxHeight: '400px',
+              transform: window.innerWidth < 768 ? 'translate(-50%, -50%)' : 'none'
+            }}
+          >
           <div className="mb-3">
             <div className="text-xs text-gray-500 dark:text-slate-400 mb-2 text-center font-semibold uppercase tracking-wide">
               Выберите время
@@ -143,7 +159,8 @@ export const TimePicker = ({ value, onChange, className = '' }: TimePickerProps)
           >
             Очистить
           </button>
-        </div>,
+        </div>
+        </>,
         document.body
       )}
     </>
