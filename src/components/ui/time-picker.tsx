@@ -69,14 +69,14 @@ export const TimePicker = ({ value, onChange, className = '' }: TimePickerProps)
       </button>
 
       {isOpen && (
-        <div className="fixed z-[9999] mt-2 bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl border border-gray-200/60 dark:border-slate-700/60 rounded-2xl shadow-2xl p-4" style={{ 
+        <div className="fixed z-[9999] bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl border border-gray-200/60 dark:border-slate-700/60 rounded-2xl shadow-2xl p-4 max-w-xs" style={{ 
           left: dropdownRef.current?.getBoundingClientRect().left,
-          top: (dropdownRef.current?.getBoundingClientRect().bottom || 0) + 8,
-          width: dropdownRef.current?.getBoundingClientRect().width
+          top: (dropdownRef.current?.getBoundingClientRect().bottom || 0) + window.scrollY + 8,
+          width: Math.max(dropdownRef.current?.getBoundingClientRect().width || 200, 200)
         }}>
           <div className="mb-4">
-            <div className="text-xs text-gray-500 dark:text-slate-400 mb-2 text-center font-semibold uppercase tracking-wide">Часы (07:00 - 01:00)</div>
-            <div className="max-h-64 overflow-y-auto border border-gray-200 dark:border-slate-700 rounded-xl bg-white/50 dark:bg-slate-900/50">
+            <div className="text-xs text-gray-500 dark:text-slate-400 mb-2 text-center font-semibold uppercase tracking-wide">Выберите время</div>
+            <div className="max-h-64 overflow-y-auto border border-gray-200 dark:border-slate-700 rounded-xl bg-white/50 dark:bg-slate-900/50 scrollbar-thin">
               {hourOptions.map((h) => (
                 <button
                   key={h}
@@ -85,7 +85,7 @@ export const TimePicker = ({ value, onChange, className = '' }: TimePickerProps)
                     onChange(`${h}:00`);
                     setIsOpen(false);
                   }}
-                  className={`w-full px-4 py-3 text-lg font-semibold text-center transition-all ${
+                  className={`w-full px-4 py-3 text-lg font-semibold text-center transition-all border-b border-gray-100 dark:border-slate-700 last:border-0 ${
                     value === `${h}:00` 
                       ? 'bg-blue-600 text-white' 
                       : 'text-gray-900 dark:text-gray-100 hover:bg-blue-50 dark:hover:bg-slate-700 active:scale-95'
