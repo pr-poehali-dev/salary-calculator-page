@@ -46,6 +46,7 @@ const Index = () => {
   const [selectedEmployee, setSelectedEmployee] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'edit' | 'view'>('view');
   const [menuOpen, setMenuOpen] = useState(false);
+  const [savedCards, setSavedCards] = useState<Set<string>>(new Set());
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const daysInMonth = useMemo(() => {
@@ -476,13 +477,22 @@ const Index = () => {
                           </div>
 
                           <Button 
-                            variant="outline" 
+                            variant={savedCards.has(`${date}-${dayData.employee}`) ? 'default' : 'outline'}
                             size="sm" 
                             className="w-full h-7 text-xs"
-                            onClick={() => {}}
+                            onClick={() => {
+                              setSavedCards(prev => new Set(prev).add(`${date}-${dayData.employee}`));
+                              setTimeout(() => {
+                                setSavedCards(prev => {
+                                  const next = new Set(prev);
+                                  next.delete(`${date}-${dayData.employee}`);
+                                  return next;
+                                });
+                              }, 1500);
+                            }}
                           >
-                            <Icon name="Save" size={14} className="mr-1" />
-                            Сохранить
+                            <Icon name={savedCards.has(`${date}-${dayData.employee}`) ? 'Check' : 'Save'} size={14} className="mr-1" />
+                            {savedCards.has(`${date}-${dayData.employee}`) ? 'Сохранено' : 'Сохранить'}
                           </Button>
                         </div>
                       </div>
