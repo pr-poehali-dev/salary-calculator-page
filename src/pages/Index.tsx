@@ -36,7 +36,7 @@ const Index = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<'edit' | 'view'>('edit');
+  const [viewMode, setViewMode] = useState<'edit' | 'view'>('view');
 
   const daysInMonth = useMemo(() => {
     const [year, month] = currentMonth.split('-').map(Number);
@@ -52,22 +52,36 @@ const Index = () => {
       if (data && data.length > 0) {
         setScheduleData(data);
       } else {
+        // Генерируем демо-данные для текущего месяца
         const emptyData: DayData[] = [];
         const [year, m] = month.split('-').map(Number);
         const days = new Date(year, m, 0).getDate();
         
         for (let day = 1; day <= days; day++) {
-          EMPLOYEES.forEach(employee => {
+          const dateStr = `${year}-${String(m).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+          const dayOfWeek = new Date(dateStr).getDay();
+          const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+          
+          EMPLOYEES.forEach((employee, idx) => {
+            // Генерируем случайные данные для первых 15 дней
+            const hasWork = day <= 15 && Math.random() > 0.3;
+            const hasShift2 = hasWork && Math.random() > 0.7;
+            const orders = hasWork ? Math.floor(Math.random() * 15) + 5 : 0;
+            const bonus = isWeekend ? 20 : 0;
+            
+            const shift1Start = hasWork ? ['09:00', '10:00', '11:00'][idx] : '';
+            const shift1End = hasWork ? ['14:00', '15:00', '16:00'][idx] : '';
+            
             emptyData.push({
-              date: `${year}-${String(m).padStart(2, '0')}-${String(day).padStart(2, '0')}`,
+              date: dateStr,
               employee,
-              shift1Start: '',
-              shift1End: '',
-              hasShift2: false,
-              shift2Start: '',
-              shift2End: '',
-              orders: 0,
-              bonus: 0
+              shift1Start,
+              shift1End,
+              hasShift2,
+              shift2Start: hasShift2 ? ['17:00', '18:00', '19:00'][idx] : '',
+              shift2End: hasShift2 ? ['21:00', '22:00', '23:00'][idx] : '',
+              orders,
+              bonus
             });
           });
         }
@@ -224,26 +238,28 @@ const Index = () => {
             </Button>
           </div>
 
-          <div className="flex gap-2 mb-3">
+          {viewMode === 'view' && (
             <Button
-              variant={viewMode === 'edit' ? 'default' : 'outline'}
-              size="sm"
               onClick={() => setViewMode('edit')}
-              className="flex-1"
-            >
-              <Icon name="Edit" size={16} className="mr-1" />
-              Редактор
-            </Button>
-            <Button
-              variant={viewMode === 'view' ? 'default' : 'outline'}
+              className="w-full mb-3"
               size="sm"
-              onClick={() => setViewMode('view')}
-              className="flex-1"
             >
-              <Icon name="Eye" size={16} className="mr-1" />
-              Просмотр
+              <Icon name="Edit" size={16} className="mr-2" />
+              Редактировать расписание
             </Button>
-          </div>
+          )}
+
+          {viewMode === 'edit' && (
+            <Button
+              onClick={() => setViewMode('view')}
+              variant="outline"
+              className="w-full mb-3"
+              size="sm"
+            >
+              <Icon name="Eye" size={16} className="mr-2" />
+              Вернуться к просмотру
+            </Button>
+          )}
 
           <div className="flex gap-2 overflow-x-auto pb-2">
             <Button
