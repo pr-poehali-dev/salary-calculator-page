@@ -30,7 +30,7 @@ export const TimePicker = ({ value, onChange, className = '' }: TimePickerProps)
   useEffect(() => {
     if (!isOpen) return;
 
-    const handleClickOutside = (event: MouseEvent) => {
+    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
       // Игнорируем если это клик открытия
       if (isOpeningRef.current) {
         isOpeningRef.current = false;
@@ -50,9 +50,11 @@ export const TimePicker = ({ value, onChange, className = '' }: TimePickerProps)
     };
 
     document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside);
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
     };
   }, [isOpen]);
 
@@ -124,6 +126,7 @@ export const TimePicker = ({ value, onChange, className = '' }: TimePickerProps)
           ref={dropdownRef}
           data-picker-id={pickerId}
           onMouseDown={(e) => e.stopPropagation()}
+          onTouchStart={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
           className="fixed z-[99999] bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl border border-gray-200/60 dark:border-slate-700/60 rounded-2xl shadow-2xl p-4"
           style={{
@@ -141,8 +144,10 @@ export const TimePicker = ({ value, onChange, className = '' }: TimePickerProps)
                   key={h}
                   type="button"
                   onMouseDown={(e) => e.stopPropagation()}
+                  onTouchStart={(e) => e.stopPropagation()}
                   onClick={(e) => {
                     e.stopPropagation();
+                    e.preventDefault();
                     onChange(`${h}:00`);
                     setIsOpen(false);
                   }}
@@ -164,8 +169,10 @@ export const TimePicker = ({ value, onChange, className = '' }: TimePickerProps)
               variant="outline"
               size="sm"
               onMouseDown={(e) => e.stopPropagation()}
+              onTouchStart={(e) => e.stopPropagation()}
               onClick={(e) => {
                 e.stopPropagation();
+                e.preventDefault();
                 handleClear();
               }}
               className="w-full"
