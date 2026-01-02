@@ -167,7 +167,7 @@ const Index = () => {
     }
   };
 
-  const saveToDatabase = async (items: DayData[]) => {
+  const saveToDatabase = async (items: DayData[], silent = false) => {
     try {
       isSavingRef.current = true;
       setSaving(true);
@@ -177,9 +177,8 @@ const Index = () => {
         body: JSON.stringify({ items })
       });
       
-      if (response.ok) {
-        playSuccessSound();
-        toast.success('Сохранено');
+      if (response.ok && !silent) {
+        toast.success('Сохранено', { duration: 1500 });
       }
       
       pendingChangesRef.current.clear();
@@ -192,7 +191,7 @@ const Index = () => {
     }
   };
 
-  const updateSchedule = (date: string, employee: string, field: keyof DayData, value: any) => {
+  const updateSchedule = (date: string, employee: string, field: keyof DayData, value: any, immediate = false) => {
     // Помечаем что это поле редактируется
     const key = `${date}-${employee}`;
     pendingChangesRef.current.add(key);
@@ -214,11 +213,16 @@ const Index = () => {
         );
       }
       
-      // Сохраняем с задержкой, чтобы не перегружать сервер
-      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-      saveTimeoutRef.current = setTimeout(() => {
-        saveToDatabase(updated);
-      }, 500);
+      // Если выбрано время - сохраняем сразу со звуком, для числовых полей - с задержкой
+      if (immediate || field.includes('shift') || field === 'hasShift2') {
+        playSuccessSound();
+        saveToDatabase(updated, false);
+      } else {
+        if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+        saveTimeoutRef.current = setTimeout(() => {
+          saveToDatabase(updated, true);
+        }, 500);
+      }
       
       return updated;
     });
@@ -497,15 +501,15 @@ const Index = () => {
               const dayBonus = filteredData[date][0]?.bonus || 0;
             
             return (
-              <Card key={date} className="overflow-visible bg-white/70 backdrop-blur-md border-gray-200/60 shadow-sm hover:shadow-md transition-all rounded-2xl">
+              <Card key={date} className="overflow-visible relative z-10 bg-white/70 dark:bg-slate-800/70 backdrop-blur-md border-gray-200/60 dark:border-slate-700/60 shadow-sm hover:shadow-md transition-all rounded-2xl">
                 <div className="bg-gradient-to-r from-blue-50/50 to-indigo-50/30 px-3 py-2 border-b border-gray-200/50">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <div className="text-xl font-semibold text-gray-900">{day}</div>
-                      <div className="text-xs text-gray-500 uppercase tracking-wide font-medium">{weekday}</div>
+                      <div className="text-xl font-semibold text-gray-900 dark:text-gray-100">{day}</div>
+                      <div className="text-xs text-gray-500 dark:text-slate-400 uppercase tracking-wide font-medium">{weekday}</div>
                     </div>
                     <div className="flex items-center gap-1">
-                      <span className="text-xs text-gray-500 font-medium">Доплата:</span>
+                      <span className="text-xs text-gray-500 dark:text-slate-400 font-medium">Доплата:</span>
                       <Input
                         type="number"
                         min="0"
@@ -524,12 +528,12 @@ const Index = () => {
                     const hours2 = dayData.hasShift2 ? calculateHours(dayData.shift2Start, dayData.shift2End) : 0;
                     
                     return (
-                      <div key={`${date}-${dayData.employee}`} className="border border-gray-200/60 rounded-xl p-3 bg-white/50 backdrop-blur-sm hover:bg-white/80 transition-all">
+                      <div key={`${date}-${dayData.employee}`} className="border border-gray-200/60 dark:border-slate-700/60 rounded-xl p-3 bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm hover:bg-white/80 dark:hover:bg-slate-900/80 transition-all">
                         <div className="flex items-center gap-2 mb-3">
                           <div className={`w-3 h-3 rounded-full ${COLORS[dayData.employee]} shadow-sm`} />
-                          <span className="font-semibold text-sm text-gray-900">{dayData.employee}</span>
+                          <span className="font-semibold text-sm text-gray-900 dark:text-gray-100">{dayData.employee}</span>
                           {salary > 0 && (
-                            <span className="ml-auto text-sm font-bold text-blue-600">
+                            <span className="ml-auto text-sm font-bold text-blue-600 dark:text-blue-400">
                               {salary.toLocaleString('ru-RU')} ₽
                             </span>
                           )}
@@ -537,7 +541,7 @@ const Index = () => {
 
                         <div className="space-y-2">
                           <div>
-                            <div className="text-xs text-gray-500 mb-1 font-medium">Смена 1 {hours1 > 0 && <span className="font-semibold text-gray-900">({hours1.toFixed(1)}ч)</span>}</div>
+                            <div className="text-xs text-gray-500 dark:text-slate-400 mb-1 font-medium">Смена 1 {hours1 > 0 && <span className="font-semibold text-gray-900 dark:text-gray-100">({hours1.toFixed(1)}ч)</span>}</div>
                             <div className="flex gap-1 items-center">
                               <TimePicker
                                 value={dayData.shift1Start}
@@ -561,12 +565,12 @@ const Index = () => {
                               }
                               className="h-4 w-4 rounded-md"
                             />
-                            <span className="text-xs font-medium text-gray-700">Вторая смена</span>
+                            <span className="text-xs font-medium text-gray-700 dark:text-gray-300">Вторая смена</span>
                           </div>
 
                           {dayData.hasShift2 && (
                             <div>
-                              <div className="text-xs text-gray-500 mb-1 font-medium">Смена 2 {hours2 > 0 && <span className="font-semibold text-gray-900">({hours2.toFixed(1)}ч)</span>}</div>
+                              <div className="text-xs text-gray-500 dark:text-slate-400 mb-1 font-medium">Смена 2 {hours2 > 0 && <span className="font-semibold text-gray-900 dark:text-gray-100">({hours2.toFixed(1)}ч)</span>}</div>
                               <div className="flex gap-1 items-center">
                                 <TimePicker
                                   value={dayData.shift2Start}
@@ -584,7 +588,7 @@ const Index = () => {
                           )}
 
                           <div>
-                            <label className="text-xs text-gray-500 block mb-1 font-medium">Заказов {dayData.orders > 0 && <span className="font-semibold text-gray-900">({(dayData.orders * (50 + dayData.bonus))}₽)</span>}</label>
+                            <label className="text-xs text-gray-500 dark:text-slate-400 block mb-1 font-medium">Заказов {dayData.orders > 0 && <span className="font-semibold text-gray-900 dark:text-gray-100">({(dayData.orders * (50 + dayData.bonus))}₽)</span>}</label>
                             <Input
                               type="number"
                               min="0"
@@ -648,15 +652,15 @@ const Index = () => {
               if (!hasAnyData) return null;
               
               return (
-                <Card key={date} className="overflow-hidden bg-white/70 backdrop-blur-md border-gray-200/60 shadow-sm hover:shadow-md transition-all rounded-2xl">
-                  <div className="bg-gradient-to-r from-blue-50/50 to-indigo-50/30 px-3 py-2 border-b border-gray-200/50">
+                <Card key={date} className="overflow-hidden bg-white/70 dark:bg-slate-800/70 backdrop-blur-md border-gray-200/60 dark:border-slate-700/60 shadow-sm hover:shadow-md transition-all rounded-2xl">
+                  <div className="bg-gradient-to-r from-blue-50/50 to-indigo-50/30 dark:from-slate-700/30 dark:to-slate-600/20 px-3 py-2 border-b border-gray-200/50 dark:border-slate-700/50">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <div className="text-lg font-semibold text-gray-900">{day}</div>
-                        <div className="text-xs text-gray-500 uppercase tracking-wide font-medium">{weekday}</div>
+                        <div className="text-lg font-semibold text-gray-900 dark:text-gray-100">{day}</div>
+                        <div className="text-xs text-gray-500 dark:text-slate-400 uppercase tracking-wide font-medium">{weekday}</div>
                       </div>
                       {dayBonus > 0 && (
-                        <div className="text-xs text-blue-600 font-semibold">
+                        <div className="text-xs text-blue-600 dark:text-blue-400 font-semibold">
                           +{dayBonus}₽
                         </div>
                       )}
@@ -675,14 +679,14 @@ const Index = () => {
                         
                         return (
                           <div key={`${date}-${data.employee}`} 
-                               className="border border-gray-200/60 rounded-xl p-3 space-y-2 bg-white/50 backdrop-blur-sm hover:bg-white/80 transition-all">
+                               className="border border-gray-200/60 dark:border-slate-700/60 rounded-xl p-3 space-y-2 bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm hover:bg-white/80 dark:hover:bg-slate-900/80 transition-all">
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-2">
                                 <div className={`w-3 h-3 rounded-full ${COLORS[data.employee]} shadow-sm`} />
-                                <span className="font-semibold text-sm text-gray-900">{data.employee}</span>
+                                <span className="font-semibold text-sm text-gray-900 dark:text-gray-100">{data.employee}</span>
                               </div>
                               {salary > 0 && (
-                                <div className="text-sm font-bold text-blue-600">
+                                <div className="text-sm font-bold text-blue-600 dark:text-blue-400">
                                   {salary.toLocaleString('ru-RU')} ₽
                                 </div>
                               )}
@@ -690,18 +694,18 @@ const Index = () => {
 
                             {(data.shift1Start || data.shift1End) && (
                               <div className="text-xs space-y-1">
-                                <div className="font-medium text-gray-700">
+                                <div className="font-medium text-gray-700 dark:text-gray-300">
                                   {data.shift1Start || '—'} – {data.shift1End || '—'}
                                 </div>
                                 {data.hasShift2 && (
-                                  <div className="font-medium text-gray-700">
+                                  <div className="font-medium text-gray-700 dark:text-gray-300">
                                     {data.shift2Start || '—'} – {data.shift2End || '—'}
                                   </div>
                                 )}
                               </div>
                             )}
 
-                            <div className="flex items-center justify-between text-xs text-gray-500 font-medium">
+                            <div className="flex items-center justify-between text-xs text-gray-500 dark:text-slate-400 font-medium">
                               {totalHours > 0 && <span>{totalHours.toFixed(1)}ч</span>}
                               {data.orders > 0 && <span>{data.orders} зак.</span>}
                             </div>
