@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useId } from 'react';
 import { createPortal } from 'react-dom';
 import { Button } from './button';
 import Icon from './icon';
@@ -10,6 +10,7 @@ interface TimePickerProps {
 }
 
 export const TimePicker = ({ value, onChange, className = '' }: TimePickerProps) => {
+  const pickerId = useId();
   const [isOpen, setIsOpen] = useState(false);
   const [hours, setHours] = useState('09');
   const [minutes, setMinutes] = useState('00');
@@ -27,12 +28,12 @@ export const TimePicker = ({ value, onChange, className = '' }: TimePickerProps)
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (
-        dropdownRef.current && 
-        !dropdownRef.current.contains(event.target as Node) &&
-        buttonRef.current &&
-        !buttonRef.current.contains(event.target as Node)
-      ) {
+      const target = event.target as HTMLElement;
+      
+      // Проверяем, что клик не по нашей кнопке и не по нашему dropdown
+      const clickedPickerId = target.closest('[data-picker-id]')?.getAttribute('data-picker-id');
+      
+      if (isOpen && clickedPickerId !== pickerId) {
         setIsOpen(false);
       }
     };
@@ -44,7 +45,7 @@ export const TimePicker = ({ value, onChange, className = '' }: TimePickerProps)
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [isOpen]);
+  }, [isOpen, pickerId]);
 
   useEffect(() => {
     if (isOpen && buttonRef.current) {
@@ -93,7 +94,11 @@ export const TimePicker = ({ value, onChange, className = '' }: TimePickerProps)
         <button
           ref={buttonRef}
           type="button"
-          onClick={() => setIsOpen(!isOpen)}
+          data-picker-id={pickerId}
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsOpen(!isOpen);
+          }}
           className="w-full h-10 px-3 py-2 text-sm rounded-xl border border-gray-200 dark:border-slate-700 bg-white/80 dark:bg-slate-800/80 hover:bg-white dark:hover:bg-slate-800 hover:border-gray-300 dark:hover:border-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all text-left flex items-center justify-between backdrop-blur-sm"
         >
           <span className={value ? 'text-gray-900 dark:text-gray-100 font-medium' : 'text-gray-400 dark:text-slate-500'}>
@@ -106,6 +111,8 @@ export const TimePicker = ({ value, onChange, className = '' }: TimePickerProps)
       {isOpen && createPortal(
         <div 
           ref={dropdownRef}
+          data-picker-id={pickerId}
+          onClick={(e) => e.stopPropagation()}
           className="fixed z-[99999] bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl border border-gray-200/60 dark:border-slate-700/60 rounded-2xl shadow-2xl p-4"
           style={{
             top: `${dropdownPosition.top}px`,
