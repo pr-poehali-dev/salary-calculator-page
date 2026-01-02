@@ -379,115 +379,111 @@ const Index = () => {
             
             return (
               <Card key={date} className="overflow-visible">
-                <div className="bg-muted/30 px-3 py-2 border-b border-border">
+                <div className="bg-muted/30 px-2 py-1.5 border-b border-border">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <div className="text-2xl font-bold">{day}</div>
+                      <div className="text-lg font-bold">{day}</div>
                       <div className="text-xs text-muted-foreground uppercase">{weekday}</div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1">
                       <span className="text-xs text-muted-foreground">Доплата:</span>
                       <Input
                         type="number"
                         min="0"
                         value={dayBonus || ''}
                         onChange={(e) => updateSchedule(date, '', 'bonus', parseInt(e.target.value) || 0)}
-                        className="w-16 h-8 text-sm"
+                        className="w-14 h-7 text-xs"
                       />
                     </div>
                   </div>
                 </div>
 
-                <div className="p-3 space-y-3">
+                <div className="p-2 space-y-2">
                   {filteredData[date].map((dayData) => {
                     const salary = calculateDaySalary(dayData);
                     const hours1 = calculateHours(dayData.shift1Start, dayData.shift1End);
                     const hours2 = dayData.hasShift2 ? calculateHours(dayData.shift2Start, dayData.shift2End) : 0;
                     
                     return (
-                      <div key={`${date}-${dayData.employee}`} className="border border-border rounded-lg p-3">
-                        <div className="flex items-center gap-2 mb-3">
-                          <div className={`w-4 h-4 rounded-full ${COLORS[dayData.employee]}`} />
-                          <span className="font-semibold">{dayData.employee}</span>
+                      <div key={`${date}-${dayData.employee}`} className="border border-border rounded-lg p-2">
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className={`w-3 h-3 rounded-full ${COLORS[dayData.employee]}`} />
+                          <span className="font-semibold text-sm">{dayData.employee}</span>
                           {salary > 0 && (
-                            <span className="ml-auto text-base md:text-lg font-bold text-primary">
+                            <span className="ml-auto text-sm font-bold text-primary">
                               {salary.toLocaleString('ru-RU')} ₽
                             </span>
                           )}
                         </div>
 
-                        <div className="space-y-3">
+                        <div className="space-y-2">
                           <div>
-                            <div className="text-xs text-muted-foreground mb-1">Смена 1</div>
-                            <div className="flex gap-2 items-center">
+                            <div className="text-xs text-muted-foreground mb-0.5">Смена 1 {hours1 > 0 && <span className="font-medium text-foreground">({hours1.toFixed(1)}ч)</span>}</div>
+                            <div className="flex gap-1 items-center">
                               <TimePicker
                                 value={dayData.shift1Start}
                                 onChange={(val) => updateSchedule(date, dayData.employee, 'shift1Start', val)}
                                 className="flex-1"
                               />
-                              <span className="text-muted-foreground">—</span>
+                              <span className="text-muted-foreground text-xs">—</span>
                               <TimePicker
                                 value={dayData.shift1End}
                                 onChange={(val) => updateSchedule(date, dayData.employee, 'shift1End', val)}
                                 className="flex-1"
                               />
                             </div>
-                            {hours1 > 0 && (
-                              <div className="text-xs text-muted-foreground mt-1">
-                                {hours1.toFixed(1)} ч × 250₽ = {(hours1 * 250).toFixed(0)}₽
-                              </div>
-                            )}
                           </div>
 
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1.5">
                             <Checkbox
                               checked={dayData.hasShift2}
                               onCheckedChange={(checked) => 
                                 updateSchedule(date, dayData.employee, 'hasShift2', checked)
                               }
+                              className="h-4 w-4"
                             />
-                            <span className="text-sm">Вторая смена</span>
+                            <span className="text-xs">Вторая смена</span>
                           </div>
 
                           {dayData.hasShift2 && (
                             <div>
-                              <div className="text-xs text-muted-foreground mb-1">Смена 2</div>
-                              <div className="flex gap-2 items-center">
+                              <div className="text-xs text-muted-foreground mb-0.5">Смена 2 {hours2 > 0 && <span className="font-medium text-foreground">({hours2.toFixed(1)}ч)</span>}</div>
+                              <div className="flex gap-1 items-center">
                                 <TimePicker
                                   value={dayData.shift2Start}
                                   onChange={(val) => updateSchedule(date, dayData.employee, 'shift2Start', val)}
                                   className="flex-1"
                                 />
-                                <span className="text-muted-foreground">—</span>
+                                <span className="text-muted-foreground text-xs">—</span>
                                 <TimePicker
                                   value={dayData.shift2End}
                                   onChange={(val) => updateSchedule(date, dayData.employee, 'shift2End', val)}
                                   className="flex-1"
                                 />
                               </div>
-                              {hours2 > 0 && (
-                                <div className="text-xs text-muted-foreground mt-1">
-                                  {hours2.toFixed(1)} ч × 250₽ = {(hours2 * 250).toFixed(0)}₽
-                                </div>
-                              )}
                             </div>
                           )}
 
                           <div>
-                            <label className="text-xs text-muted-foreground block mb-1">Заказов</label>
+                            <label className="text-xs text-muted-foreground block mb-0.5">Заказов {dayData.orders > 0 && <span className="font-medium text-foreground">({(dayData.orders * (50 + dayData.bonus))}₽)</span>}</label>
                             <Input
                               type="number"
                               min="0"
                               value={dayData.orders || ''}
                               onChange={(e) => updateSchedule(date, dayData.employee, 'orders', parseInt(e.target.value) || 0)}
+                              className="h-8 text-sm"
                             />
                           </div>
 
-                          {dayData.orders > 0 && (
-                            <div className="text-xs text-muted-foreground">
-                              {dayData.orders} × (50₽ + {dayData.bonus}₽) = {(dayData.orders * (50 + dayData.bonus))}₽
-                            </div>
-                          )}
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="w-full h-7 text-xs"
+                            onClick={() => {}}
+                          >
+                            <Icon name="Check" size={14} className="mr-1" />
+                            Сохранено
+                          </Button>
                         </div>
                       </div>
                     );
@@ -512,22 +508,22 @@ const Index = () => {
               
               return (
                 <Card key={date} className="overflow-hidden">
-                  <div className="bg-muted/30 px-3 py-2 border-b border-border">
+                  <div className="bg-muted/30 px-2 py-1 border-b border-border">
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="text-2xl font-bold">{day}</div>
+                      <div className="flex items-center gap-1.5">
+                        <div className="text-base font-bold">{day}</div>
                         <div className="text-xs text-muted-foreground uppercase">{weekday}</div>
                       </div>
                       {dayBonus > 0 && (
                         <div className="text-xs text-muted-foreground">
-                          Доплата: +{dayBonus}₽
+                          +{dayBonus}₽
                         </div>
                       )}
                     </div>
                   </div>
 
-                  <div className="p-3">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div className="p-2">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                       {dayData.map((data) => {
                         const salary = calculateDaySalary(data);
                         const hours1 = calculateHours(data.shift1Start, data.shift1End);
@@ -538,15 +534,21 @@ const Index = () => {
                         
                         return (
                           <div key={`${date}-${data.employee}`} 
-                               className="border border-border rounded-lg p-3 space-y-2">
-                            <div className="flex items-center gap-2 mb-2">
-                              <div className={`w-3 h-3 rounded-full ${COLORS[data.employee]}`} />
-                              <span className="font-semibold text-sm">{data.employee}</span>
+                               className="border border-border rounded-lg p-2 space-y-1">
+                            <div className="flex items-center justify-between mb-1">
+                              <div className="flex items-center gap-1.5">
+                                <div className={`w-2.5 h-2.5 rounded-full ${COLORS[data.employee]}`} />
+                                <span className="font-semibold text-xs">{data.employee}</span>
+                              </div>
+                              {salary > 0 && (
+                                <div className="text-sm font-bold text-primary">
+                                  {salary.toLocaleString('ru-RU')} ₽
+                                </div>
+                              )}
                             </div>
 
                             {(data.shift1Start || data.shift1End) && (
-                              <div className="text-sm">
-                                <div className="text-muted-foreground text-xs">Смена</div>
+                              <div className="text-xs">
                                 <div className="font-medium">
                                   {data.shift1Start || '—'} – {data.shift1End || '—'}
                                 </div>
@@ -558,26 +560,10 @@ const Index = () => {
                               </div>
                             )}
 
-                            {totalHours > 0 && (
-                              <div className="text-xs text-muted-foreground">
-                                {totalHours.toFixed(1)} ч × 250₽
-                              </div>
-                            )}
-
-                            {data.orders > 0 && (
-                              <div className="text-sm">
-                                <div className="text-muted-foreground text-xs">Заказов</div>
-                                <div className="font-medium">{data.orders}</div>
-                              </div>
-                            )}
-
-                            {salary > 0 && (
-                              <div className="pt-2 border-t border-border">
-                                <div className="text-lg font-bold text-primary">
-                                  {salary.toLocaleString('ru-RU')} ₽
-                                </div>
-                              </div>
-                            )}
+                            <div className="flex items-center justify-between text-xs text-muted-foreground">
+                              {totalHours > 0 && <span>{totalHours.toFixed(1)}ч</span>}
+                              {data.orders > 0 && <span>{data.orders} зак.</span>}
+                            </div>
                           </div>
                         );
                       })}
