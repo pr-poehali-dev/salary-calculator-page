@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import Icon from '@/components/ui/icon';
 import TimePicker from '@/components/ui/time-picker';
+import IOSKeyboard from '@/components/ui/ios-keyboard';
 import {
   Sheet,
   SheetContent,
@@ -51,6 +52,8 @@ const Index = () => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [savedCards, setSavedCards] = useState<Set<string>>(new Set());
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
+  const [keyboardOpen, setKeyboardOpen] = useState<string | null>(null);
+  const [keyboardValue, setKeyboardValue] = useState('0');
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isSavingRef = useRef(false);
   const pendingChangesRef = useRef<Set<string>>(new Set());
@@ -510,13 +513,16 @@ const Index = () => {
                     </div>
                     <div className="flex items-center gap-1">
                       <span className="text-xs text-gray-500 dark:text-slate-400 font-medium">Доплата:</span>
-                      <Input
-                        type="number"
-                        min="0"
-                        value={dayBonus || ''}
-                        onChange={(e) => updateSchedule(date, '', 'bonus', parseInt(e.target.value) || 0)}
-                        className="w-16 h-8 text-xs rounded-lg border-gray-200 bg-white/80"
-                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setKeyboardValue(String(dayBonus || 0));
+                          setKeyboardOpen(`bonus-${date}`);
+                        }}
+                        className="w-16 h-8 text-xs rounded-lg border border-gray-200 dark:border-slate-700 bg-white/80 dark:bg-slate-800/80 hover:bg-white dark:hover:bg-slate-800 px-2 font-medium text-gray-900 dark:text-gray-100 transition-all"
+                      >
+                        {dayBonus || 0}
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -593,13 +599,16 @@ const Index = () => {
 
                           <div>
                             <label className="text-xs text-gray-500 dark:text-slate-400 block mb-1 font-medium">Заказов {dayData.orders > 0 && <span className="font-semibold text-gray-900 dark:text-gray-100">({(dayData.orders * (50 + dayData.bonus))}₽)</span>}</label>
-                            <Input
-                              type="number"
-                              min="0"
-                              value={dayData.orders || ''}
-                              onChange={(e) => updateSchedule(date, dayData.employee, 'orders', parseInt(e.target.value) || 0)}
-                              className="h-9 text-sm rounded-lg border-gray-200 bg-white/80"
-                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setKeyboardValue(String(dayData.orders || 0));
+                                setKeyboardOpen(`orders-${date}-${dayData.employee}`);
+                              }}
+                              className="w-full h-9 text-sm rounded-lg border border-gray-200 dark:border-slate-700 bg-white/80 dark:bg-slate-800/80 hover:bg-white dark:hover:bg-slate-800 px-3 font-medium text-gray-900 dark:text-gray-100 text-left transition-all"
+                            >
+                              {dayData.orders || 0}
+                            </button>
                           </div>
 
                           <Button 
@@ -720,6 +729,27 @@ const Index = () => {
           </div>
         )}
       </div>
+
+      {keyboardOpen && (
+        <IOSKeyboard
+          value={keyboardValue}
+          onChange={(val) => {
+            setKeyboardValue(val);
+            const numVal = parseInt(val) || 0;
+            
+            if (keyboardOpen.startsWith('bonus-')) {
+              const date = keyboardOpen.replace('bonus-', '');
+              updateSchedule(date, '', 'bonus', numVal);
+            } else if (keyboardOpen.startsWith('orders-')) {
+              const parts = keyboardOpen.replace('orders-', '').split('-');
+              const date = `${parts[0]}-${parts[1]}-${parts[2]}`;
+              const employee = parts.slice(3).join('-');
+              updateSchedule(date, employee, 'orders', numVal);
+            }
+          }}
+          onClose={() => setKeyboardOpen(null)}
+        />
+      )}
     </div>
   );
 };
