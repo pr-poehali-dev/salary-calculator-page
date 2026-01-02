@@ -481,8 +481,8 @@ const Index = () => {
                             className="w-full h-7 text-xs"
                             onClick={() => {}}
                           >
-                            <Icon name="Check" size={14} className="mr-1" />
-                            Сохранено
+                            <Icon name="Save" size={14} className="mr-1" />
+                            Сохранить
                           </Button>
                         </div>
                       </div>
