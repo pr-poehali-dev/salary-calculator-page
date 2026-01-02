@@ -28,14 +28,14 @@ def handler(event: dict, context) -> dict:
             
             if month:
                 year, m = month.split('-')
-                cur.execute("""
+                cur.execute(f"""
                     SELECT date, employee, shift1_start, shift1_end, 
                            has_shift2, shift2_start, shift2_end, orders, bonus
                     FROM schedule 
-                    WHERE EXTRACT(YEAR FROM date) = %s 
-                    AND EXTRACT(MONTH FROM date) = %s
+                    WHERE EXTRACT(YEAR FROM date) = {int(year)} 
+                    AND EXTRACT(MONTH FROM date) = {int(m)}
                     ORDER BY date, employee
-                """, (int(year), int(m)))
+                """)
             else:
                 cur.execute("""
                     SELECT date, employee, shift1_start, shift1_end, 
@@ -71,10 +71,29 @@ def handler(event: dict, context) -> dict:
             items = body.get('items', [body])
             
             for data in items:
-                cur.execute("""
+                date = data['date']
+                employee = data['employee'].replace("'", "''")
+                shift1_start = data.get('shift1Start') or 'NULL'
+                shift1_end = data.get('shift1End') or 'NULL'
+                has_shift2 = 'TRUE' if data.get('hasShift2', False) else 'FALSE'
+                shift2_start = data.get('shift2Start') or 'NULL'
+                shift2_end = data.get('shift2End') or 'NULL'
+                orders = data.get('orders', 0)
+                bonus = data.get('bonus', 0)
+                
+                if shift1_start != 'NULL':
+                    shift1_start = f"'{shift1_start}'"
+                if shift1_end != 'NULL':
+                    shift1_end = f"'{shift1_end}'"
+                if shift2_start != 'NULL':
+                    shift2_start = f"'{shift2_start}'"
+                if shift2_end != 'NULL':
+                    shift2_end = f"'{shift2_end}'"
+                
+                cur.execute(f"""
                     INSERT INTO schedule 
                     (date, employee, shift1_start, shift1_end, has_shift2, shift2_start, shift2_end, orders, bonus)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    VALUES ('{date}', '{employee}', {shift1_start}, {shift1_end}, {has_shift2}, {shift2_start}, {shift2_end}, {orders}, {bonus})
                     ON CONFLICT (date, employee) 
                     DO UPDATE SET 
                         shift1_start = EXCLUDED.shift1_start,
@@ -85,17 +104,7 @@ def handler(event: dict, context) -> dict:
                         orders = EXCLUDED.orders,
                         bonus = EXCLUDED.bonus,
                         updated_at = CURRENT_TIMESTAMP
-                """, (
-                    data['date'],
-                    data['employee'],
-                    data.get('shift1Start') or None,
-                    data.get('shift1End') or None,
-                    data.get('hasShift2', False),
-                    data.get('shift2Start') or None,
-                    data.get('shift2End') or None,
-                    data.get('orders', 0),
-                    data.get('bonus', 0)
-                ))
+                """)
             conn.commit()
             
             return {

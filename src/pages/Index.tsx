@@ -52,6 +52,7 @@ const Index = () => {
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isSavingRef = useRef(false);
   const pendingChangesRef = useRef<Set<string>>(new Set());
+  const audioContextRef = useRef<AudioContext | null>(null);
 
   const daysInMonth = useMemo(() => {
     const [year, month] = currentMonth.split('-').map(Number);
@@ -130,18 +131,59 @@ const Index = () => {
     return () => clearInterval(interval);
   }, [currentMonth]);
 
+  const playSuccessSound = () => {
+    try {
+      if (!audioContextRef.current) {
+        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      }
+      const ctx = audioContextRef.current;
+      const now = ctx.currentTime;
+      
+      // Создаем звук как у Apple Pay - два тона
+      const osc1 = ctx.createOscillator();
+      const osc2 = ctx.createOscillator();
+      const gain = ctx.createGain();
+      
+      osc1.frequency.value = 1000; // Первый тон
+      osc2.frequency.value = 1200; // Второй тон выше
+      osc1.type = 'sine';
+      osc2.type = 'sine';
+      
+      gain.gain.setValueAtTime(0.3, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+      
+      osc1.connect(gain);
+      osc2.connect(gain);
+      gain.connect(ctx.destination);
+      
+      osc1.start(now);
+      osc2.start(now + 0.05); // Второй тон чуть позже
+      osc1.stop(now + 0.1);
+      osc2.stop(now + 0.15);
+    } catch (error) {
+      console.log('Звук недоступен');
+    }
+  };
+
   const saveToDatabase = async (items: DayData[]) => {
     try {
       isSavingRef.current = true;
       setSaving(true);
-      await fetch(API_URL, {
+      const response = await fetch(API_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ items })
       });
+      
+      if (response.ok) {
+        playSuccessSound();
+        toast.success('Сохранено');
+      }
+      
       pendingChangesRef.current.clear();
     } catch (error) {
       console.error('Ошибка сохранения:', error);
+      toast.error('Ошибка сохранения');
     } finally {
       setSaving(false);
       isSavingRef.current = false;
