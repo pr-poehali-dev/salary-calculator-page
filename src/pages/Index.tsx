@@ -331,15 +331,15 @@ const Index = () => {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto p-3 pb-32">
+      <div className="max-w-7xl mx-auto p-3 pb-32 overflow-visible">
         {viewMode === 'edit' ? (
-          <div className="space-y-2">
+          <div className="space-y-2 overflow-visible">
             {Object.keys(filteredData).sort().map(date => {
               const { day, weekday } = formatDate(date);
               const dayBonus = filteredData[date][0]?.bonus || 0;
             
             return (
-              <Card key={date} className="overflow-hidden">
+              <Card key={date} className="overflow-visible">
                 <div className="bg-muted/30 px-3 py-2 border-b border-border">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
