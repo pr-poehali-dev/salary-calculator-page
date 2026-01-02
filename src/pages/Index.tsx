@@ -13,6 +13,7 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet';
 import { toast } from 'sonner';
+import { useTheme } from '@/contexts/ThemeContext';
 
 interface DayData {
   date: string;
@@ -36,6 +37,7 @@ const COLORS = {
 const API_URL = 'https://functions.poehali.dev/5a203b28-37f5-4d7d-b66f-147c4de8c7c0';
 
 const Index = () => {
+  const { theme, toggleTheme } = useTheme();
   const [currentMonth, setCurrentMonth] = useState(() => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -337,8 +339,8 @@ const Index = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20">
-      <div className="sticky top-0 z-20 bg-white/80 backdrop-blur-xl border-b border-gray-200/60 shadow-sm">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20 dark:from-slate-950 dark:via-slate-900 dark:to-slate-900">
+      <div className="sticky top-0 z-20 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-gray-200/60 dark:border-slate-700/60 shadow-sm">
         <div className="max-w-7xl mx-auto px-3 py-2">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
@@ -397,6 +399,19 @@ const Index = () => {
                     )}
 
                     <div className="pt-4 border-t">
+                      <p className="text-sm font-semibold mb-3">Настройки</p>
+                      <Button
+                        onClick={toggleTheme}
+                        variant="outline"
+                        size="sm"
+                        className="w-full justify-start"
+                      >
+                        <Icon name={theme === 'dark' ? 'Sun' : 'Moon'} size={16} className="mr-2" />
+                        {theme === 'dark' ? 'Светлая тема' : 'Тёмная тема'}
+                      </Button>
+                    </div>
+
+                    <div className="pt-4 border-t">
                       <p className="text-sm font-semibold mb-3">Фильтр по сотруднику</p>
                       <div className="space-y-2">
                         <Button
@@ -427,6 +442,28 @@ const Index = () => {
                         ))}
                       </div>
                     </div>
+
+                    <div className="pt-4 border-t">
+                      <p className="text-sm font-semibold mb-3 uppercase tracking-wide text-muted-foreground">Итого за месяц</p>
+                      <div className="space-y-2">
+                        {EMPLOYEES.map(emp => {
+                          const total = getMonthTotal(emp);
+                          if (selectedEmployee && selectedEmployee !== emp) return null;
+                          
+                          return (
+                            <div key={emp} className="flex items-center justify-between p-3 rounded-xl bg-muted/50">
+                              <div className="flex items-center gap-2">
+                                <div className={`w-3 h-3 rounded-full ${COLORS[emp]} shadow-sm`} />
+                                <span className="font-semibold text-sm">{emp}</span>
+                              </div>
+                              <span className="text-base font-bold text-primary">
+                                {total.toLocaleString('ru-RU')} ₽
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
                   </div>
                 </SheetContent>
               </Sheet>
@@ -452,7 +489,7 @@ const Index = () => {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto p-3 pb-32 overflow-visible">
+      <div className="max-w-7xl mx-auto p-3 pb-6 overflow-visible">
         {viewMode === 'edit' ? (
           <div className="space-y-2 overflow-visible">
             {Object.keys(filteredData).sort().map(date => {
@@ -678,30 +715,6 @@ const Index = () => {
             })}
           </div>
         )}
-      </div>
-
-      <div className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-xl border-t border-gray-200/60 p-4 shadow-2xl">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-xs md:text-sm text-gray-500 mb-3 font-semibold uppercase tracking-wide">Итого за месяц:</div>
-          <div className="space-y-2 md:space-y-3">
-            {EMPLOYEES.map(emp => {
-              const total = getMonthTotal(emp);
-              if (selectedEmployee && selectedEmployee !== emp) return null;
-              
-              return (
-                <div key={emp} className="flex items-center justify-between bg-white/60 rounded-xl p-3 border border-gray-200/50">
-                  <div className="flex items-center gap-2">
-                    <div className={`w-3 h-3 rounded-full ${COLORS[emp]} shadow-sm`} />
-                    <span className="font-semibold text-sm md:text-base text-gray-900">{emp}</span>
-                  </div>
-                  <span className="text-base md:text-lg font-bold text-blue-600">
-                    {total.toLocaleString('ru-RU')} ₽
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
       </div>
     </div>
   );

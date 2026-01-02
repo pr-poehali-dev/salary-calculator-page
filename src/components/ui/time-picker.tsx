@@ -60,19 +60,19 @@ export const TimePicker = ({ value, onChange, className = '' }: TimePickerProps)
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full h-10 px-3 py-2 text-sm rounded-xl border border-gray-200 bg-white/80 hover:bg-white hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all text-left flex items-center justify-between backdrop-blur-sm"
+        className="w-full h-10 px-3 py-2 text-sm rounded-xl border border-gray-200 dark:border-slate-700 bg-white/80 dark:bg-slate-800/80 hover:bg-white dark:hover:bg-slate-800 hover:border-gray-300 dark:hover:border-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all text-left flex items-center justify-between backdrop-blur-sm"
       >
-        <span className={value ? 'text-gray-900 font-medium' : 'text-gray-400'}>
+        <span className={value ? 'text-gray-900 dark:text-gray-100 font-medium' : 'text-gray-400 dark:text-slate-500'}>
           {value || 'Выбрать время'}
         </span>
-        <Icon name="Clock" size={16} className="text-gray-400" />
+        <Icon name="Clock" size={16} className="text-gray-400 dark:text-slate-500" />
       </button>
 
       {isOpen && (
-        <div className="absolute z-50 mt-2 w-full bg-white/95 backdrop-blur-xl border border-gray-200/60 rounded-2xl shadow-2xl p-4">
+        <div className="absolute z-[100] mt-2 w-full bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl border border-gray-200/60 dark:border-slate-700/60 rounded-2xl shadow-2xl p-4">
           <div className="mb-4">
-            <div className="text-xs text-gray-500 mb-2 text-center font-semibold uppercase tracking-wide">Часы (07:00 - 01:00)</div>
-            <div className="max-h-64 overflow-y-auto border border-gray-200 rounded-xl bg-white/50">
+            <div className="text-xs text-gray-500 dark:text-slate-400 mb-2 text-center font-semibold uppercase tracking-wide">Часы (07:00 - 01:00)</div>
+            <div className="max-h-64 overflow-y-auto border border-gray-200 dark:border-slate-700 rounded-xl bg-white/50 dark:bg-slate-900/50">
               {hourOptions.map((h) => (
                 <button
                   key={h}
@@ -84,7 +84,7 @@ export const TimePicker = ({ value, onChange, className = '' }: TimePickerProps)
                   className={`w-full px-4 py-3 text-lg font-semibold text-center transition-all ${
                     value === `${h}:00` 
                       ? 'bg-blue-600 text-white' 
-                      : 'text-gray-900 hover:bg-blue-50 active:scale-95'
+                      : 'text-gray-900 dark:text-gray-100 hover:bg-blue-50 dark:hover:bg-slate-700 active:scale-95'
                   }`}
                 >
                   {h}:00
