@@ -544,12 +544,14 @@ const Index = () => {
                             <div className="text-xs text-gray-500 dark:text-slate-400 mb-1 font-medium">Смена 1 {hours1 > 0 && <span className="font-semibold text-gray-900 dark:text-gray-100">({hours1.toFixed(1)}ч)</span>}</div>
                             <div className="flex gap-1 items-center">
                               <TimePicker
+                                key={`${date}-${dayData.employee}-shift1-start`}
                                 value={dayData.shift1Start}
                                 onChange={(val) => updateSchedule(date, dayData.employee, 'shift1Start', val)}
                                 className="flex-1"
                               />
                               <span className="text-muted-foreground text-xs">—</span>
                               <TimePicker
+                                key={`${date}-${dayData.employee}-shift1-end`}
                                 value={dayData.shift1End}
                                 onChange={(val) => updateSchedule(date, dayData.employee, 'shift1End', val)}
                                 className="flex-1"
@@ -573,12 +575,14 @@ const Index = () => {
                               <div className="text-xs text-gray-500 dark:text-slate-400 mb-1 font-medium">Смена 2 {hours2 > 0 && <span className="font-semibold text-gray-900 dark:text-gray-100">({hours2.toFixed(1)}ч)</span>}</div>
                               <div className="flex gap-1 items-center">
                                 <TimePicker
+                                  key={`${date}-${dayData.employee}-shift2-start`}
                                   value={dayData.shift2Start}
                                   onChange={(val) => updateSchedule(date, dayData.employee, 'shift2Start', val)}
                                   className="flex-1"
                                 />
                                 <span className="text-gray-400 text-xs font-medium">—</span>
                                 <TimePicker
+                                  key={`${date}-${dayData.employee}-shift2-end`}
                                   value={dayData.shift2End}
                                   onChange={(val) => updateSchedule(date, dayData.employee, 'shift2End', val)}
                                   className="flex-1"
