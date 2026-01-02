@@ -48,16 +48,19 @@ const Index = () => {
   const [viewMode, setViewMode] = useState<'edit' | 'view'>('view');
   const [menuOpen, setMenuOpen] = useState(false);
   const [savedCards, setSavedCards] = useState<Set<string>>(new Set());
+  const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isSavingRef = useRef(false);
+  const pendingChangesRef = useRef<Set<string>>(new Set());
 
   const daysInMonth = useMemo(() => {
     const [year, month] = currentMonth.split('-').map(Number);
     return new Date(year, month, 0).getDate();
   }, [currentMonth]);
 
-  const loadSchedule = async (month: string) => {
+  const loadSchedule = async (month: string, silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const response = await fetch(`${API_URL}?month=${month}`);
       const data = await response.json();
       
@@ -87,21 +90,41 @@ const Index = () => {
         });
       }
       
-      setScheduleData(fullSchedule);
+      // При тихом обновлении сохраняем изменения которые сейчас редактируются
+      if (silent) {
+        setScheduleData(prev => {
+          return fullSchedule.map(newItem => {
+            const key = `${newItem.date}-${newItem.employee}`;
+            // Если это поле сейчас редактируется - не перезаписываем
+            if (pendingChangesRef.current.has(key)) {
+              const oldItem = prev.find(p => p.date === newItem.date && p.employee === newItem.employee);
+              return oldItem || newItem;
+            }
+            return newItem;
+          });
+        });
+      } else {
+        setScheduleData(fullSchedule);
+      }
+      
+      setLastUpdate(new Date());
     } catch (error) {
       console.error('Ошибка загрузки:', error);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadSchedule(currentMonth);
+    loadSchedule(currentMonth, false);
   }, [currentMonth]);
 
   useEffect(() => {
     const interval = setInterval(() => {
-      loadSchedule(currentMonth);
+      // Тихое обновление без перезагрузки UI
+      if (!isSavingRef.current) {
+        loadSchedule(currentMonth, true);
+      }
     }, 30000);
 
     return () => clearInterval(interval);
@@ -109,20 +132,27 @@ const Index = () => {
 
   const saveToDatabase = async (items: DayData[]) => {
     try {
+      isSavingRef.current = true;
       setSaving(true);
       await fetch(API_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ items })
       });
+      pendingChangesRef.current.clear();
     } catch (error) {
       console.error('Ошибка сохранения:', error);
     } finally {
       setSaving(false);
+      isSavingRef.current = false;
     }
   };
 
   const updateSchedule = (date: string, employee: string, field: keyof DayData, value: any) => {
+    // Помечаем что это поле редактируется
+    const key = `${date}-${employee}`;
+    pendingChangesRef.current.add(key);
+    
     setScheduleData(prev => {
       let updated = [...prev];
       
