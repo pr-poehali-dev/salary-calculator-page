@@ -32,26 +32,26 @@ export const TimePicker = ({ value, onChange, className = '' }: TimePickerProps)
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as HTMLElement;
       
-      // Проверяем, что клик не внутри нашего компонента
-      const clickedElement = target.closest('[data-picker-id]');
-      const clickedPickerId = clickedElement?.getAttribute('data-picker-id');
+      // Проверяем, что клик не внутри кнопки или dropdown
+      const isInsideButton = buttonRef.current?.contains(target);
+      const isInsideDropdown = dropdownRef.current?.contains(target);
       
-      // Закрываем только если клик вне нашего picker'а
-      if (!clickedPickerId || clickedPickerId !== pickerId) {
+      // Закрываем только если клик вне обоих элементов
+      if (!isInsideButton && !isInsideDropdown) {
         setIsOpen(false);
       }
     };
 
-    // Добавляем обработчик с задержкой, чтобы не поймать клик открытия
-    const timeoutId = setTimeout(() => {
-      document.addEventListener('mousedown', handleClickOutside);
-    }, 0);
+    // Используем небольшую задержку чтобы пропустить текущий клик открытия
+    const timer = setTimeout(() => {
+      document.addEventListener('click', handleClickOutside, true);
+    }, 50);
 
     return () => {
-      clearTimeout(timeoutId);
-      document.removeEventListener('mousedown', handleClickOutside);
+      clearTimeout(timer);
+      document.removeEventListener('click', handleClickOutside, true);
     };
-  }, [isOpen, pickerId]);
+  }, [isOpen]);
 
   useEffect(() => {
     if (isOpen && buttonRef.current) {
