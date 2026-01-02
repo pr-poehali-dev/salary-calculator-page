@@ -99,6 +99,14 @@ const Index = () => {
     loadSchedule(currentMonth);
   }, [currentMonth]);
 
+  useEffect(() => {
+    const interval = setInterval(() => {
+      loadSchedule(currentMonth);
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, [currentMonth]);
+
   const saveToDatabase = async (items: DayData[]) => {
     try {
       setSaving(true);
