@@ -337,14 +337,14 @@ const Index = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted">
-      <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm border-b border-border shadow-sm">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20">
+      <div className="sticky top-0 z-20 bg-white/80 backdrop-blur-xl border-b border-gray-200/60 shadow-sm">
         <div className="max-w-7xl mx-auto px-3 py-2">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
                 <SheetTrigger asChild>
-                  <Button variant="outline" size="sm">
+                  <Button variant="outline" size="sm" className="rounded-xl border-gray-200 hover:bg-gray-50">
                     <Icon name="Menu" size={18} />
                   </Button>
                 </SheetTrigger>
@@ -431,7 +431,7 @@ const Index = () => {
                 </SheetContent>
               </Sheet>
 
-              <Button onClick={() => changeMonth(-1)} variant="outline" size="sm">
+              <Button onClick={() => changeMonth(-1)} variant="outline" size="sm" className="rounded-xl border-gray-200 hover:bg-gray-50">
                 <Icon name="ChevronLeft" size={16} />
               </Button>
             </div>
@@ -441,7 +441,7 @@ const Index = () => {
             </div>
 
             <div className="flex items-center gap-2">
-              <Button onClick={() => changeMonth(1)} variant="outline" size="sm">
+              <Button onClick={() => changeMonth(1)} variant="outline" size="sm" className="rounded-xl border-gray-200 hover:bg-gray-50">
                 <Icon name="ChevronRight" size={16} />
               </Button>
               {saving && (
@@ -460,39 +460,39 @@ const Index = () => {
               const dayBonus = filteredData[date][0]?.bonus || 0;
             
             return (
-              <Card key={date} className="overflow-visible">
-                <div className="bg-muted/30 px-2 py-1.5 border-b border-border">
+              <Card key={date} className="overflow-visible bg-white/70 backdrop-blur-md border-gray-200/60 shadow-sm hover:shadow-md transition-all rounded-2xl">
+                <div className="bg-gradient-to-r from-blue-50/50 to-indigo-50/30 px-3 py-2 border-b border-gray-200/50">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <div className="text-lg font-bold">{day}</div>
-                      <div className="text-xs text-muted-foreground uppercase">{weekday}</div>
+                      <div className="text-xl font-semibold text-gray-900">{day}</div>
+                      <div className="text-xs text-gray-500 uppercase tracking-wide font-medium">{weekday}</div>
                     </div>
                     <div className="flex items-center gap-1">
-                      <span className="text-xs text-muted-foreground">Доплата:</span>
+                      <span className="text-xs text-gray-500 font-medium">Доплата:</span>
                       <Input
                         type="number"
                         min="0"
                         value={dayBonus || ''}
                         onChange={(e) => updateSchedule(date, '', 'bonus', parseInt(e.target.value) || 0)}
-                        className="w-14 h-7 text-xs"
+                        className="w-16 h-8 text-xs rounded-lg border-gray-200 bg-white/80"
                       />
                     </div>
                   </div>
                 </div>
 
-                <div className="p-2 space-y-2">
+                <div className="p-3 space-y-3">
                   {filteredData[date].map((dayData) => {
                     const salary = calculateDaySalary(dayData);
                     const hours1 = calculateHours(dayData.shift1Start, dayData.shift1End);
                     const hours2 = dayData.hasShift2 ? calculateHours(dayData.shift2Start, dayData.shift2End) : 0;
                     
                     return (
-                      <div key={`${date}-${dayData.employee}`} className="border border-border rounded-lg p-2">
-                        <div className="flex items-center gap-2 mb-2">
-                          <div className={`w-3 h-3 rounded-full ${COLORS[dayData.employee]}`} />
-                          <span className="font-semibold text-sm">{dayData.employee}</span>
+                      <div key={`${date}-${dayData.employee}`} className="border border-gray-200/60 rounded-xl p-3 bg-white/50 backdrop-blur-sm hover:bg-white/80 transition-all">
+                        <div className="flex items-center gap-2 mb-3">
+                          <div className={`w-3 h-3 rounded-full ${COLORS[dayData.employee]} shadow-sm`} />
+                          <span className="font-semibold text-sm text-gray-900">{dayData.employee}</span>
                           {salary > 0 && (
-                            <span className="ml-auto text-sm font-bold text-primary">
+                            <span className="ml-auto text-sm font-bold text-blue-600">
                               {salary.toLocaleString('ru-RU')} ₽
                             </span>
                           )}
@@ -500,7 +500,7 @@ const Index = () => {
 
                         <div className="space-y-2">
                           <div>
-                            <div className="text-xs text-muted-foreground mb-0.5">Смена 1 {hours1 > 0 && <span className="font-medium text-foreground">({hours1.toFixed(1)}ч)</span>}</div>
+                            <div className="text-xs text-gray-500 mb-1 font-medium">Смена 1 {hours1 > 0 && <span className="font-semibold text-gray-900">({hours1.toFixed(1)}ч)</span>}</div>
                             <div className="flex gap-1 items-center">
                               <TimePicker
                                 value={dayData.shift1Start}
@@ -516,27 +516,27 @@ const Index = () => {
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex items-center gap-2 py-1">
                             <Checkbox
                               checked={dayData.hasShift2}
                               onCheckedChange={(checked) => 
                                 updateSchedule(date, dayData.employee, 'hasShift2', checked)
                               }
-                              className="h-4 w-4"
+                              className="h-4 w-4 rounded-md"
                             />
-                            <span className="text-xs">Вторая смена</span>
+                            <span className="text-xs font-medium text-gray-700">Вторая смена</span>
                           </div>
 
                           {dayData.hasShift2 && (
                             <div>
-                              <div className="text-xs text-muted-foreground mb-0.5">Смена 2 {hours2 > 0 && <span className="font-medium text-foreground">({hours2.toFixed(1)}ч)</span>}</div>
+                              <div className="text-xs text-gray-500 mb-1 font-medium">Смена 2 {hours2 > 0 && <span className="font-semibold text-gray-900">({hours2.toFixed(1)}ч)</span>}</div>
                               <div className="flex gap-1 items-center">
                                 <TimePicker
                                   value={dayData.shift2Start}
                                   onChange={(val) => updateSchedule(date, dayData.employee, 'shift2Start', val)}
                                   className="flex-1"
                                 />
-                                <span className="text-muted-foreground text-xs">—</span>
+                                <span className="text-gray-400 text-xs font-medium">—</span>
                                 <TimePicker
                                   value={dayData.shift2End}
                                   onChange={(val) => updateSchedule(date, dayData.employee, 'shift2End', val)}
@@ -547,20 +547,20 @@ const Index = () => {
                           )}
 
                           <div>
-                            <label className="text-xs text-muted-foreground block mb-0.5">Заказов {dayData.orders > 0 && <span className="font-medium text-foreground">({(dayData.orders * (50 + dayData.bonus))}₽)</span>}</label>
+                            <label className="text-xs text-gray-500 block mb-1 font-medium">Заказов {dayData.orders > 0 && <span className="font-semibold text-gray-900">({(dayData.orders * (50 + dayData.bonus))}₽)</span>}</label>
                             <Input
                               type="number"
                               min="0"
                               value={dayData.orders || ''}
                               onChange={(e) => updateSchedule(date, dayData.employee, 'orders', parseInt(e.target.value) || 0)}
-                              className="h-8 text-sm"
+                              className="h-9 text-sm rounded-lg border-gray-200 bg-white/80"
                             />
                           </div>
 
                           <Button 
                             variant={savedCards.has(`${date}-${dayData.employee}`) ? 'default' : 'outline'}
                             size="sm" 
-                            className="w-full h-7 text-xs transition-all"
+                            className="w-full h-9 text-xs transition-all rounded-xl font-semibold shadow-sm hover:shadow-md"
                             onClick={() => {
                               const cardId = `${date}-${dayData.employee}`;
                               setSavedCards(prev => new Set(prev).add(cardId));
@@ -611,23 +611,23 @@ const Index = () => {
               if (!hasAnyData) return null;
               
               return (
-                <Card key={date} className="overflow-hidden">
-                  <div className="bg-muted/30 px-2 py-1 border-b border-border">
+                <Card key={date} className="overflow-hidden bg-white/70 backdrop-blur-md border-gray-200/60 shadow-sm hover:shadow-md transition-all rounded-2xl">
+                  <div className="bg-gradient-to-r from-blue-50/50 to-indigo-50/30 px-3 py-2 border-b border-gray-200/50">
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1.5">
-                        <div className="text-base font-bold">{day}</div>
-                        <div className="text-xs text-muted-foreground uppercase">{weekday}</div>
+                      <div className="flex items-center gap-2">
+                        <div className="text-lg font-semibold text-gray-900">{day}</div>
+                        <div className="text-xs text-gray-500 uppercase tracking-wide font-medium">{weekday}</div>
                       </div>
                       {dayBonus > 0 && (
-                        <div className="text-xs text-muted-foreground">
+                        <div className="text-xs text-blue-600 font-semibold">
                           +{dayBonus}₽
                         </div>
                       )}
                     </div>
                   </div>
 
-                  <div className="p-2">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                  <div className="p-3">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                       {dayData.map((data) => {
                         const salary = calculateDaySalary(data);
                         const hours1 = calculateHours(data.shift1Start, data.shift1End);
@@ -638,33 +638,33 @@ const Index = () => {
                         
                         return (
                           <div key={`${date}-${data.employee}`} 
-                               className="border border-border rounded-lg p-2 space-y-1">
-                            <div className="flex items-center justify-between mb-1">
-                              <div className="flex items-center gap-1.5">
-                                <div className={`w-2.5 h-2.5 rounded-full ${COLORS[data.employee]}`} />
-                                <span className="font-semibold text-xs">{data.employee}</span>
+                               className="border border-gray-200/60 rounded-xl p-3 space-y-2 bg-white/50 backdrop-blur-sm hover:bg-white/80 transition-all">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <div className={`w-3 h-3 rounded-full ${COLORS[data.employee]} shadow-sm`} />
+                                <span className="font-semibold text-sm text-gray-900">{data.employee}</span>
                               </div>
                               {salary > 0 && (
-                                <div className="text-sm font-bold text-primary">
+                                <div className="text-sm font-bold text-blue-600">
                                   {salary.toLocaleString('ru-RU')} ₽
                                 </div>
                               )}
                             </div>
 
                             {(data.shift1Start || data.shift1End) && (
-                              <div className="text-xs">
-                                <div className="font-medium">
+                              <div className="text-xs space-y-1">
+                                <div className="font-medium text-gray-700">
                                   {data.shift1Start || '—'} – {data.shift1End || '—'}
                                 </div>
                                 {data.hasShift2 && (
-                                  <div className="font-medium">
+                                  <div className="font-medium text-gray-700">
                                     {data.shift2Start || '—'} – {data.shift2End || '—'}
                                   </div>
                                 )}
                               </div>
                             )}
 
-                            <div className="flex items-center justify-between text-xs text-muted-foreground">
+                            <div className="flex items-center justify-between text-xs text-gray-500 font-medium">
                               {totalHours > 0 && <span>{totalHours.toFixed(1)}ч</span>}
                               {data.orders > 0 && <span>{data.orders} зак.</span>}
                             </div>
@@ -680,21 +680,21 @@ const Index = () => {
         )}
       </div>
 
-      <div className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur-sm border-t border-border p-3 shadow-lg">
+      <div className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-xl border-t border-gray-200/60 p-4 shadow-2xl">
         <div className="max-w-7xl mx-auto">
-          <div className="text-xs md:text-sm text-muted-foreground mb-2">Итого за месяц:</div>
-          <div className="space-y-1 md:space-y-2">
+          <div className="text-xs md:text-sm text-gray-500 mb-3 font-semibold uppercase tracking-wide">Итого за месяц:</div>
+          <div className="space-y-2 md:space-y-3">
             {EMPLOYEES.map(emp => {
               const total = getMonthTotal(emp);
               if (selectedEmployee && selectedEmployee !== emp) return null;
               
               return (
-                <div key={emp} className="flex items-center justify-between">
+                <div key={emp} className="flex items-center justify-between bg-white/60 rounded-xl p-3 border border-gray-200/50">
                   <div className="flex items-center gap-2">
-                    <div className={`w-3 h-3 rounded-full ${COLORS[emp]}`} />
-                    <span className="font-medium text-sm md:text-base">{emp}</span>
+                    <div className={`w-3 h-3 rounded-full ${COLORS[emp]} shadow-sm`} />
+                    <span className="font-semibold text-sm md:text-base text-gray-900">{emp}</span>
                   </div>
-                  <span className="text-base md:text-lg font-bold">
+                  <span className="text-base md:text-lg font-bold text-blue-600">
                     {total.toLocaleString('ru-RU')} ₽
                   </span>
                 </div>

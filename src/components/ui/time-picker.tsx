@@ -60,19 +60,19 @@ export const TimePicker = ({ value, onChange, className = '' }: TimePickerProps)
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full h-10 px-3 py-2 text-sm rounded-md border border-input bg-background hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 transition-colors text-left flex items-center justify-between"
+        className="w-full h-10 px-3 py-2 text-sm rounded-xl border border-gray-200 bg-white/80 hover:bg-white hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all text-left flex items-center justify-between backdrop-blur-sm"
       >
-        <span className={value ? 'text-foreground' : 'text-muted-foreground'}>
+        <span className={value ? 'text-gray-900 font-medium' : 'text-gray-400'}>
           {value || 'Выбрать время'}
         </span>
-        <Icon name="Clock" size={16} className="text-muted-foreground" />
+        <Icon name="Clock" size={16} className="text-gray-400" />
       </button>
 
       {isOpen && (
-        <div className="absolute z-50 mt-2 w-full bg-card border border-border rounded-lg shadow-lg p-4">
+        <div className="absolute z-50 mt-2 w-full bg-white/95 backdrop-blur-xl border border-gray-200/60 rounded-2xl shadow-2xl p-4">
           <div className="mb-4">
-            <div className="text-xs text-muted-foreground mb-2 text-center">Часы (07:00 - 01:00)</div>
-            <div className="max-h-64 overflow-y-auto border border-border rounded-md bg-background">
+            <div className="text-xs text-gray-500 mb-2 text-center font-semibold uppercase tracking-wide">Часы (07:00 - 01:00)</div>
+            <div className="max-h-64 overflow-y-auto border border-gray-200 rounded-xl bg-white/50">
               {hourOptions.map((h) => (
                 <button
                   key={h}
@@ -81,8 +81,10 @@ export const TimePicker = ({ value, onChange, className = '' }: TimePickerProps)
                     onChange(`${h}:00`);
                     setIsOpen(false);
                   }}
-                  className={`w-full px-4 py-3 text-lg font-medium text-center hover:bg-accent hover:text-accent-foreground transition-colors ${
-                    value === `${h}:00` ? 'bg-primary text-primary-foreground' : 'text-foreground'
+                  className={`w-full px-4 py-3 text-lg font-semibold text-center transition-all ${
+                    value === `${h}:00` 
+                      ? 'bg-blue-600 text-white' 
+                      : 'text-gray-900 hover:bg-blue-50 active:scale-95'
                   }`}
                 >
                   {h}:00
