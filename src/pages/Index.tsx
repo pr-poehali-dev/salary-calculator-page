@@ -53,36 +53,25 @@ const Index = () => {
       if (data && data.length > 0) {
         setScheduleData(data);
       } else {
-        // Генерируем демо-данные для текущего месяца
+        // Создаем пустое расписание для всего месяца
         const emptyData: DayData[] = [];
         const [year, m] = month.split('-').map(Number);
         const days = new Date(year, m, 0).getDate();
         
         for (let day = 1; day <= days; day++) {
           const dateStr = `${year}-${String(m).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-          const dayOfWeek = new Date(dateStr).getDay();
-          const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
           
-          EMPLOYEES.forEach((employee, idx) => {
-            // Генерируем случайные данные для первых 15 дней
-            const hasWork = day <= 15 && Math.random() > 0.3;
-            const hasShift2 = hasWork && Math.random() > 0.7;
-            const orders = hasWork ? Math.floor(Math.random() * 15) + 5 : 0;
-            const bonus = isWeekend ? 20 : 0;
-            
-            const shift1Start = hasWork ? ['09:00', '10:00', '11:00'][idx] : '';
-            const shift1End = hasWork ? ['14:00', '15:00', '16:00'][idx] : '';
-            
+          EMPLOYEES.forEach((employee) => {
             emptyData.push({
               date: dateStr,
               employee,
-              shift1Start,
-              shift1End,
-              hasShift2,
-              shift2Start: hasShift2 ? ['17:00', '18:00', '19:00'][idx] : '',
-              shift2End: hasShift2 ? ['21:00', '22:00', '23:00'][idx] : '',
-              orders,
-              bonus
+              shift1Start: '',
+              shift1End: '',
+              hasShift2: false,
+              shift2Start: '',
+              shift2End: '',
+              orders: 0,
+              bonus: 0
             });
           });
         }
