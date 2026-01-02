@@ -36,6 +36,7 @@ const Index = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<'edit' | 'view'>('edit');
 
   const daysInMonth = useMemo(() => {
     const [year, month] = currentMonth.split('-').map(Number);
@@ -100,15 +101,28 @@ const Index = () => {
 
   const updateSchedule = (date: string, employee: string, field: keyof DayData, value: any) => {
     setScheduleData(prev => {
-      const updated = prev.map(item => 
-        item.date === date && item.employee === employee
-          ? { ...item, [field]: value }
-          : item
-      );
+      let updated = [...prev];
       
-      const changedItem = updated.find(item => item.date === date && item.employee === employee);
-      if (changedItem) {
-        saveToDatabase([changedItem]);
+      if (field === 'bonus') {
+        updated = updated.map(item => 
+          item.date === date
+            ? { ...item, bonus: value }
+            : item
+        );
+        
+        const itemsToSave = updated.filter(item => item.date === date);
+        saveToDatabase(itemsToSave);
+      } else {
+        updated = updated.map(item => 
+          item.date === date && item.employee === employee
+            ? { ...item, [field]: value }
+            : item
+        );
+        
+        const changedItem = updated.find(item => item.date === date && item.employee === employee);
+        if (changedItem) {
+          saveToDatabase([changedItem]);
+        }
       }
       
       return updated;
@@ -189,11 +203,11 @@ const Index = () => {
       <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm border-b border-border shadow-sm">
         <div className="max-w-7xl mx-auto p-3">
           <div className="flex items-center justify-between mb-3">
-            <h1 className="text-xl md:text-2xl font-bold">💰 Зарплата</h1>
+            <h1 className="text-xl md:text-2xl font-bold">💰 Расписание</h1>
             {saving && (
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Icon name="Cloud" size={16} className="animate-pulse" />
-                <span>Сохранение...</span>
+                <span className="hidden md:inline">Сохранение...</span>
               </div>
             )}
           </div>
@@ -202,11 +216,32 @@ const Index = () => {
             <Button onClick={() => changeMonth(-1)} variant="outline" size="sm">
               <Icon name="ChevronLeft" size={16} />
             </Button>
-            <div className="flex-1 text-center font-semibold">
+            <div className="flex-1 text-center font-semibold text-sm md:text-base">
               {new Date(currentMonth + '-01').toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' })}
             </div>
             <Button onClick={() => changeMonth(1)} variant="outline" size="sm">
               <Icon name="ChevronRight" size={16} />
+            </Button>
+          </div>
+
+          <div className="flex gap-2 mb-3">
+            <Button
+              variant={viewMode === 'edit' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setViewMode('edit')}
+              className="flex-1"
+            >
+              <Icon name="Edit" size={16} className="mr-1" />
+              Редактор
+            </Button>
+            <Button
+              variant={viewMode === 'view' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setViewMode('view')}
+              className="flex-1"
+            >
+              <Icon name="Eye" size={16} className="mr-1" />
+              Просмотр
             </Button>
           </div>
 
@@ -236,9 +271,11 @@ const Index = () => {
       </div>
 
       <div className="max-w-7xl mx-auto p-3 pb-32">
-        <div className="space-y-2">
-          {Object.keys(filteredData).sort().map(date => {
-            const { day, weekday } = formatDate(date);
+        {viewMode === 'edit' ? (
+          <div className="space-y-2">
+            {Object.keys(filteredData).sort().map(date => {
+              const { day, weekday } = formatDate(date);
+              const dayBonus = filteredData[date][0]?.bonus || 0;
             
             return (
               <Card key={date} className="overflow-hidden">
@@ -247,6 +284,16 @@ const Index = () => {
                     <div className="flex items-center gap-2">
                       <div className="text-2xl font-bold">{day}</div>
                       <div className="text-xs text-muted-foreground uppercase">{weekday}</div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">Доплата:</span>
+                      <Input
+                        type="number"
+                        min="0"
+                        value={dayBonus || ''}
+                        onChange={(e) => updateSchedule(date, '', 'bonus', parseInt(e.target.value) || 0)}
+                        className="w-16 h-8 text-sm"
+                      />
                     </div>
                   </div>
                 </div>
@@ -263,7 +310,7 @@ const Index = () => {
                           <div className={`w-4 h-4 rounded-full ${COLORS[dayData.employee]}`} />
                           <span className="font-semibold">{dayData.employee}</span>
                           {salary > 0 && (
-                            <span className="ml-auto text-lg font-bold text-primary">
+                            <span className="ml-auto text-base md:text-lg font-bold text-primary">
                               {salary.toLocaleString('ru-RU')} ₽
                             </span>
                           )}
@@ -330,25 +377,14 @@ const Index = () => {
                             </div>
                           )}
 
-                          <div className="grid grid-cols-2 gap-3">
-                            <div>
-                              <label className="text-xs text-muted-foreground block mb-1">Заказов</label>
-                              <Input
-                                type="number"
-                                min="0"
-                                value={dayData.orders || ''}
-                                onChange={(e) => updateSchedule(date, dayData.employee, 'orders', parseInt(e.target.value) || 0)}
-                              />
-                            </div>
-                            <div>
-                              <label className="text-xs text-muted-foreground block mb-1">Доплата за заказ</label>
-                              <Input
-                                type="number"
-                                min="0"
-                                value={dayData.bonus || ''}
-                                onChange={(e) => updateSchedule(date, dayData.employee, 'bonus', parseInt(e.target.value) || 0)}
-                              />
-                            </div>
+                          <div>
+                            <label className="text-xs text-muted-foreground block mb-1">Заказов</label>
+                            <Input
+                              type="number"
+                              min="0"
+                              value={dayData.orders || ''}
+                              onChange={(e) => updateSchedule(date, dayData.employee, 'orders', parseInt(e.target.value) || 0)}
+                            />
                           </div>
 
                           {dayData.orders > 0 && (
@@ -364,13 +400,104 @@ const Index = () => {
               </Card>
             );
           })}
-        </div>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {Object.keys(filteredData).sort().map(date => {
+              const { day, weekday } = formatDate(date);
+              const dayData = filteredData[date];
+              const dayBonus = dayData[0]?.bonus || 0;
+              
+              const hasAnyData = dayData.some(d => 
+                d.shift1Start || d.shift1End || d.orders > 0 || d.hasShift2
+              );
+
+              if (!hasAnyData) return null;
+              
+              return (
+                <Card key={date} className="overflow-hidden">
+                  <div className="bg-muted/30 px-3 py-2 border-b border-border">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="text-2xl font-bold">{day}</div>
+                        <div className="text-xs text-muted-foreground uppercase">{weekday}</div>
+                      </div>
+                      {dayBonus > 0 && (
+                        <div className="text-xs text-muted-foreground">
+                          Доплата: +{dayBonus}₽
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="p-3">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      {dayData.map((data) => {
+                        const salary = calculateDaySalary(data);
+                        const hours1 = calculateHours(data.shift1Start, data.shift1End);
+                        const hours2 = data.hasShift2 ? calculateHours(data.shift2Start, data.shift2End) : 0;
+                        const totalHours = hours1 + hours2;
+                        
+                        if (!data.shift1Start && !data.orders) return null;
+                        
+                        return (
+                          <div key={`${date}-${data.employee}`} 
+                               className="border border-border rounded-lg p-3 space-y-2">
+                            <div className="flex items-center gap-2 mb-2">
+                              <div className={`w-3 h-3 rounded-full ${COLORS[data.employee]}`} />
+                              <span className="font-semibold text-sm">{data.employee}</span>
+                            </div>
+
+                            {(data.shift1Start || data.shift1End) && (
+                              <div className="text-sm">
+                                <div className="text-muted-foreground text-xs">Смена</div>
+                                <div className="font-medium">
+                                  {data.shift1Start || '—'} – {data.shift1End || '—'}
+                                </div>
+                                {data.hasShift2 && (
+                                  <div className="font-medium">
+                                    {data.shift2Start || '—'} – {data.shift2End || '—'}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {totalHours > 0 && (
+                              <div className="text-xs text-muted-foreground">
+                                {totalHours.toFixed(1)} ч × 250₽
+                              </div>
+                            )}
+
+                            {data.orders > 0 && (
+                              <div className="text-sm">
+                                <div className="text-muted-foreground text-xs">Заказов</div>
+                                <div className="font-medium">{data.orders}</div>
+                              </div>
+                            )}
+
+                            {salary > 0 && (
+                              <div className="pt-2 border-t border-border">
+                                <div className="text-lg font-bold text-primary">
+                                  {salary.toLocaleString('ru-RU')} ₽
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       <div className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur-sm border-t border-border p-3 shadow-lg">
         <div className="max-w-7xl mx-auto">
-          <div className="text-sm text-muted-foreground mb-2">Итого за месяц:</div>
-          <div className="space-y-2">
+          <div className="text-xs md:text-sm text-muted-foreground mb-2">Итого за месяц:</div>
+          <div className="space-y-1 md:space-y-2">
             {EMPLOYEES.map(emp => {
               const total = getMonthTotal(emp);
               if (selectedEmployee && selectedEmployee !== emp) return null;
@@ -379,9 +506,9 @@ const Index = () => {
                 <div key={emp} className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <div className={`w-3 h-3 rounded-full ${COLORS[emp]}`} />
-                    <span className="font-medium">{emp}</span>
+                    <span className="font-medium text-sm md:text-base">{emp}</span>
                   </div>
-                  <span className="text-lg font-bold">
+                  <span className="text-base md:text-lg font-bold">
                     {total.toLocaleString('ru-RU')} ₽
                   </span>
                 </div>
