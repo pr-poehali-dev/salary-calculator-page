@@ -69,11 +69,7 @@ export const TimePicker = ({ value, onChange, className = '' }: TimePickerProps)
       </button>
 
       {isOpen && (
-        <div className="fixed z-[9999] bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl border border-gray-200/60 dark:border-slate-700/60 rounded-2xl shadow-2xl p-4 max-w-xs" style={{ 
-          left: dropdownRef.current?.getBoundingClientRect().left,
-          top: (dropdownRef.current?.getBoundingClientRect().bottom || 0) + window.scrollY + 8,
-          width: Math.max(dropdownRef.current?.getBoundingClientRect().width || 200, 200)
-        }}>
+        <div className="absolute z-[9999] left-0 right-0 top-full mt-2 bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl border border-gray-200/60 dark:border-slate-700/60 rounded-2xl shadow-2xl p-4">
           <div className="mb-4">
             <div className="text-xs text-gray-500 dark:text-slate-400 mb-2 text-center font-semibold uppercase tracking-wide">Выберите время</div>
             <div className="max-h-64 overflow-y-auto border border-gray-200 dark:border-slate-700 rounded-xl bg-white/50 dark:bg-slate-900/50 scrollbar-thin">
