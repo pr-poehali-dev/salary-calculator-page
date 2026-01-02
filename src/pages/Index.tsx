@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import Icon from '@/components/ui/icon';
+import TimePicker from '@/components/ui/time-picker';
 
 interface DayData {
   date: string;
@@ -184,17 +185,34 @@ const Index = () => {
   };
 
   const filteredData = useMemo(() => {
-    if (!selectedEmployee) return groupedData;
-    
-    const filtered: { [key: string]: DayData[] } = {};
-    Object.keys(groupedData).forEach(date => {
-      const employeeData = groupedData[date].filter(d => d.employee === selectedEmployee);
-      if (employeeData.length > 0) {
-        filtered[date] = employeeData;
-      }
-    });
-    return filtered;
-  }, [groupedData, selectedEmployee]);
+    if (viewMode === 'view') {
+      // В режиме просмотра показываем только заполненные дни
+      const withData: { [key: string]: DayData[] } = {};
+      Object.keys(groupedData).forEach(date => {
+        const dayData = selectedEmployee 
+          ? groupedData[date].filter(d => d.employee === selectedEmployee)
+          : groupedData[date];
+        
+        const hasData = dayData.some(d => d.shift1Start || d.shift1End || d.orders > 0);
+        if (hasData) {
+          withData[date] = dayData;
+        }
+      });
+      return withData;
+    } else {
+      // В режиме редактора показываем ВСЕ дни месяца
+      if (!selectedEmployee) return groupedData;
+      
+      const filtered: { [key: string]: DayData[] } = {};
+      Object.keys(groupedData).forEach(date => {
+        const employeeData = groupedData[date].filter(d => d.employee === selectedEmployee);
+        if (employeeData.length > 0) {
+          filtered[date] = employeeData;
+        }
+      });
+      return filtered;
+    }
+  }, [groupedData, selectedEmployee, viewMode]);
 
   if (loading) {
     return (
@@ -331,17 +349,15 @@ const Index = () => {
                           <div>
                             <div className="text-xs text-muted-foreground mb-1">Смена 1</div>
                             <div className="flex gap-2 items-center">
-                              <Input
-                                type="time"
+                              <TimePicker
                                 value={dayData.shift1Start}
-                                onChange={(e) => updateSchedule(date, dayData.employee, 'shift1Start', e.target.value)}
+                                onChange={(val) => updateSchedule(date, dayData.employee, 'shift1Start', val)}
                                 className="flex-1"
                               />
                               <span className="text-muted-foreground">—</span>
-                              <Input
-                                type="time"
+                              <TimePicker
                                 value={dayData.shift1End}
-                                onChange={(e) => updateSchedule(date, dayData.employee, 'shift1End', e.target.value)}
+                                onChange={(val) => updateSchedule(date, dayData.employee, 'shift1End', val)}
                                 className="flex-1"
                               />
                             </div>
@@ -366,17 +382,15 @@ const Index = () => {
                             <div>
                               <div className="text-xs text-muted-foreground mb-1">Смена 2</div>
                               <div className="flex gap-2 items-center">
-                                <Input
-                                  type="time"
+                                <TimePicker
                                   value={dayData.shift2Start}
-                                  onChange={(e) => updateSchedule(date, dayData.employee, 'shift2Start', e.target.value)}
+                                  onChange={(val) => updateSchedule(date, dayData.employee, 'shift2Start', val)}
                                   className="flex-1"
                                 />
                                 <span className="text-muted-foreground">—</span>
-                                <Input
-                                  type="time"
+                                <TimePicker
                                   value={dayData.shift2End}
-                                  onChange={(e) => updateSchedule(date, dayData.employee, 'shift2End', e.target.value)}
+                                  onChange={(val) => updateSchedule(date, dayData.employee, 'shift2End', val)}
                                   className="flex-1"
                                 />
                               </div>
