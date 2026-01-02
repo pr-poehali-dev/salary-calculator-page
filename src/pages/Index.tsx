@@ -12,6 +12,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet';
+import { toast } from 'sonner';
 
 interface DayData {
   date: string;
@@ -479,16 +480,29 @@ const Index = () => {
                           <Button 
                             variant={savedCards.has(`${date}-${dayData.employee}`) ? 'default' : 'outline'}
                             size="sm" 
-                            className="w-full h-7 text-xs"
+                            className="w-full h-7 text-xs transition-all"
                             onClick={() => {
-                              setSavedCards(prev => new Set(prev).add(`${date}-${dayData.employee}`));
+                              const cardId = `${date}-${dayData.employee}`;
+                              setSavedCards(prev => new Set(prev).add(cardId));
+                              
+                              toast.success('Данные сохранены', {
+                                description: `${dayData.employee} • ${formatDate(date).day} ${formatDate(date).weekday}`,
+                                duration: 2000,
+                                icon: '💾',
+                                style: {
+                                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                                  border: 'none',
+                                  color: 'white',
+                                },
+                              });
+                              
                               setTimeout(() => {
                                 setSavedCards(prev => {
                                   const next = new Set(prev);
-                                  next.delete(`${date}-${dayData.employee}`);
+                                  next.delete(cardId);
                                   return next;
                                 });
-                              }, 1500);
+                              }, 2000);
                             }}
                           >
                             <Icon name={savedCards.has(`${date}-${dayData.employee}`) ? 'Check' : 'Save'} size={14} className="mr-1" />
