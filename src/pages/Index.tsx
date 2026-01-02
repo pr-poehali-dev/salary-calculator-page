@@ -604,18 +604,14 @@ const Index = () => {
                             className="w-full h-9 text-xs transition-all rounded-xl font-semibold shadow-sm hover:shadow-md"
                             onClick={() => {
                               const cardId = `${date}-${dayData.employee}`;
-                              setSavedCards(prev => new Set(prev).add(cardId));
                               
-                              toast.success('Данные сохранены', {
-                                description: `${dayData.employee} • ${formatDate(date).day} ${formatDate(date).weekday}`,
-                                duration: 2000,
-                                icon: '💾',
-                                style: {
-                                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                                  border: 'none',
-                                  color: 'white',
-                                },
-                              });
+                              // Воспроизводим звук iOS
+                              playSuccessSound();
+                              
+                              // Сохраняем в БД
+                              saveToDatabase(scheduleData, false);
+                              
+                              setSavedCards(prev => new Set(prev).add(cardId));
                               
                               setTimeout(() => {
                                 setSavedCards(prev => {
