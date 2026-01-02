@@ -67,39 +67,41 @@ def handler(event: dict, context) -> dict:
             }
 
         elif method == 'POST':
-            data = json.loads(event.get('body', '{}'))
+            body = json.loads(event.get('body', '{}'))
+            items = body.get('items', [body])
             
-            cur.execute("""
-                INSERT INTO schedule 
-                (date, employee, shift1_start, shift1_end, has_shift2, shift2_start, shift2_end, orders, bonus)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-                ON CONFLICT (date, employee) 
-                DO UPDATE SET 
-                    shift1_start = EXCLUDED.shift1_start,
-                    shift1_end = EXCLUDED.shift1_end,
-                    has_shift2 = EXCLUDED.has_shift2,
-                    shift2_start = EXCLUDED.shift2_start,
-                    shift2_end = EXCLUDED.shift2_end,
-                    orders = EXCLUDED.orders,
-                    bonus = EXCLUDED.bonus,
-                    updated_at = CURRENT_TIMESTAMP
-            """, (
-                data['date'],
-                data['employee'],
-                data.get('shift1Start') or None,
-                data.get('shift1End') or None,
-                data.get('hasShift2', False),
-                data.get('shift2Start') or None,
-                data.get('shift2End') or None,
-                data.get('orders', 0),
-                data.get('bonus', 0)
-            ))
+            for data in items:
+                cur.execute("""
+                    INSERT INTO schedule 
+                    (date, employee, shift1_start, shift1_end, has_shift2, shift2_start, shift2_end, orders, bonus)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (date, employee) 
+                    DO UPDATE SET 
+                        shift1_start = EXCLUDED.shift1_start,
+                        shift1_end = EXCLUDED.shift1_end,
+                        has_shift2 = EXCLUDED.has_shift2,
+                        shift2_start = EXCLUDED.shift2_start,
+                        shift2_end = EXCLUDED.shift2_end,
+                        orders = EXCLUDED.orders,
+                        bonus = EXCLUDED.bonus,
+                        updated_at = CURRENT_TIMESTAMP
+                """, (
+                    data['date'],
+                    data['employee'],
+                    data.get('shift1Start') or None,
+                    data.get('shift1End') or None,
+                    data.get('hasShift2', False),
+                    data.get('shift2Start') or None,
+                    data.get('shift2End') or None,
+                    data.get('orders', 0),
+                    data.get('bonus', 0)
+                ))
             conn.commit()
             
             return {
                 'statusCode': 200,
                 'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                'body': json.dumps({'success': True})
+                'body': json.dumps({'success': True, 'saved': len(items)})
             }
 
     finally:

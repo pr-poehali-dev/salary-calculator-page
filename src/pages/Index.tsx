@@ -4,14 +4,6 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import Icon from '@/components/ui/icon';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 
 interface DayData {
   date: string;
@@ -32,50 +24,96 @@ const COLORS = {
   'Денис': 'bg-orange-500'
 };
 
+const API_URL = 'https://functions.poehali.dev/5a203b28-37f5-4d7d-b66f-147c4de8c7c0';
+
 const Index = () => {
   const [currentMonth, setCurrentMonth] = useState(() => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   });
 
+  const [scheduleData, setScheduleData] = useState<DayData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [selectedEmployee, setSelectedEmployee] = useState<string | null>(null);
+
   const daysInMonth = useMemo(() => {
     const [year, month] = currentMonth.split('-').map(Number);
     return new Date(year, month, 0).getDate();
   }, [currentMonth]);
 
-  const loadFromStorage = (month: string): DayData[] => {
-    const saved = localStorage.getItem(`schedule_${month}`);
-    if (saved) {
-      return JSON.parse(saved);
+  const loadSchedule = async (month: string) => {
+    try {
+      setLoading(true);
+      const response = await fetch(`${API_URL}?month=${month}`);
+      const data = await response.json();
+      
+      if (data && data.length > 0) {
+        setScheduleData(data);
+      } else {
+        const emptyData: DayData[] = [];
+        const [year, m] = month.split('-').map(Number);
+        const days = new Date(year, m, 0).getDate();
+        
+        for (let day = 1; day <= days; day++) {
+          EMPLOYEES.forEach(employee => {
+            emptyData.push({
+              date: `${year}-${String(m).padStart(2, '0')}-${String(day).padStart(2, '0')}`,
+              employee,
+              shift1Start: '',
+              shift1End: '',
+              hasShift2: false,
+              shift2Start: '',
+              shift2End: '',
+              orders: 0,
+              bonus: 0
+            });
+          });
+        }
+        setScheduleData(emptyData);
+      }
+    } catch (error) {
+      console.error('Ошибка загрузки:', error);
+    } finally {
+      setLoading(false);
     }
-    
-    const data: DayData[] = [];
-    const [year, m] = month.split('-').map(Number);
-    const days = new Date(year, m, 0).getDate();
-    
-    for (let day = 1; day <= days; day++) {
-      EMPLOYEES.forEach(employee => {
-        data.push({
-          date: `${year}-${String(m).padStart(2, '0')}-${String(day).padStart(2, '0')}`,
-          employee,
-          shift1Start: '',
-          shift1End: '',
-          hasShift2: false,
-          shift2Start: '',
-          shift2End: '',
-          orders: 0,
-          bonus: 0
-        });
-      });
-    }
-    return data;
   };
 
-  const [scheduleData, setScheduleData] = useState<DayData[]>(() => loadFromStorage(currentMonth));
-
   useEffect(() => {
-    localStorage.setItem(`schedule_${currentMonth}`, JSON.stringify(scheduleData));
-  }, [scheduleData, currentMonth]);
+    loadSchedule(currentMonth);
+  }, [currentMonth]);
+
+  const saveToDatabase = async (items: DayData[]) => {
+    try {
+      setSaving(true);
+      await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items })
+      });
+    } catch (error) {
+      console.error('Ошибка сохранения:', error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const updateSchedule = (date: string, employee: string, field: keyof DayData, value: any) => {
+    setScheduleData(prev => {
+      const updated = prev.map(item => 
+        item.date === date && item.employee === employee
+          ? { ...item, [field]: value }
+          : item
+      );
+      
+      const changedItem = updated.find(item => item.date === date && item.employee === employee);
+      if (changedItem) {
+        saveToDatabase([changedItem]);
+      }
+      
+      return updated;
+    });
+  };
 
   const calculateHours = (start: string, end: string): number => {
     if (!start || !end) return 0;
@@ -91,17 +129,6 @@ const Index = () => {
     const hours2 = day.hasShift2 ? calculateHours(day.shift2Start, day.shift2End) : 0;
     const totalHours = hours1 + hours2;
     return (totalHours * 250) + (day.orders * (50 + day.bonus));
-  };
-
-  const updateSchedule = (date: string, employee: string, field: keyof DayData, value: any) => {
-    setScheduleData(prev => {
-      const updated = prev.map(item => 
-        item.date === date && item.employee === employee
-          ? { ...item, [field]: value }
-          : item
-      );
-      return updated;
-    });
   };
 
   const getMonthTotal = (employee: string): number => {
@@ -121,7 +148,9 @@ const Index = () => {
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
-    return `${String(date.getDate()).padStart(2, '0')}.${String(date.getMonth() + 1).padStart(2, '0')}`;
+    const day = date.getDate();
+    const weekday = date.toLocaleDateString('ru-RU', { weekday: 'short' });
+    return { day, weekday };
   };
 
   const changeMonth = (direction: number) => {
@@ -129,177 +158,236 @@ const Index = () => {
     const newDate = new Date(year, month - 1 + direction, 1);
     const newMonth = `${newDate.getFullYear()}-${String(newDate.getMonth() + 1).padStart(2, '0')}`;
     setCurrentMonth(newMonth);
-    setScheduleData(loadFromStorage(newMonth));
   };
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted p-2 md:p-4">
-      <div className="max-w-[1600px] mx-auto">
-        <div className="text-center mb-4 animate-fade-in">
-          <h1 className="text-3xl md:text-4xl font-bold font-heading mb-2 bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-transparent">
-            💰 Калькулятор зарплаты
-          </h1>
-        </div>
+  const filteredData = useMemo(() => {
+    if (!selectedEmployee) return groupedData;
+    
+    const filtered: { [key: string]: DayData[] } = {};
+    Object.keys(groupedData).forEach(date => {
+      const employeeData = groupedData[date].filter(d => d.employee === selectedEmployee);
+      if (employeeData.length > 0) {
+        filtered[date] = employeeData;
+      }
+    });
+    return filtered;
+  }, [groupedData, selectedEmployee]);
 
-        <Card className="p-3 mb-4 bg-card/95 backdrop-blur-sm">
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted flex items-center justify-center">
+        <div className="text-center">
+          <Icon name="Loader2" className="animate-spin mx-auto mb-4" size={48} />
+          <p className="text-muted-foreground">Загрузка...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted">
+      <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm border-b border-border shadow-sm">
+        <div className="max-w-7xl mx-auto p-3">
           <div className="flex items-center justify-between mb-3">
-            <Button
-              onClick={() => changeMonth(-1)}
-              variant="outline"
-              size="sm"
-            >
+            <h1 className="text-xl md:text-2xl font-bold">💰 Зарплата</h1>
+            {saving && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Icon name="Cloud" size={16} className="animate-pulse" />
+                <span>Сохранение...</span>
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2 mb-3">
+            <Button onClick={() => changeMonth(-1)} variant="outline" size="sm">
               <Icon name="ChevronLeft" size={16} />
             </Button>
-            <h2 className="text-lg font-heading font-bold">
+            <div className="flex-1 text-center font-semibold">
               {new Date(currentMonth + '-01').toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' })}
-            </h2>
-            <Button
-              onClick={() => changeMonth(1)}
-              variant="outline"
-              size="sm"
-            >
+            </div>
+            <Button onClick={() => changeMonth(1)} variant="outline" size="sm">
               <Icon name="ChevronRight" size={16} />
             </Button>
           </div>
 
-          <div className="overflow-x-auto -mx-3">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/50">
-                  <TableHead className="font-bold text-xs p-2 text-center sticky left-0 bg-muted/50 z-10">Дата</TableHead>
-                  <TableHead className="font-bold text-xs p-2 text-center">Имя</TableHead>
-                  <TableHead className="font-bold text-xs p-2 text-center">Время работы</TableHead>
-                  <TableHead className="font-bold text-xs p-2 text-center">+Смена</TableHead>
-                  <TableHead className="font-bold text-xs p-2 text-center">Час.</TableHead>
-                  <TableHead className="font-bold text-xs p-2 text-center">Зак.</TableHead>
-                  <TableHead className="font-bold text-xs p-2 text-center">Допл.</TableHead>
-                  <TableHead className="font-bold text-xs p-2 text-center">Итого</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {Object.keys(groupedData).sort().map(date => (
-                  groupedData[date].map((dayData, idx) => (
-                    <TableRow 
-                      key={`${date}-${dayData.employee}`}
-                      className="hover:bg-muted/20 transition-colors"
-                    >
-                      {idx === 0 && (
-                        <TableCell 
-                          rowSpan={EMPLOYEES.length} 
-                          className="font-semibold text-xs p-2 text-center align-middle bg-muted/20 sticky left-0 z-10"
-                        >
-                          {formatDate(date)}
-                        </TableCell>
-                      )}
-                      <TableCell className="p-2">
-                        <div className="flex items-center gap-1">
+          <div className="flex gap-2 overflow-x-auto pb-2">
+            <Button
+              variant={selectedEmployee === null ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setSelectedEmployee(null)}
+              className="whitespace-nowrap"
+            >
+              Все
+            </Button>
+            {EMPLOYEES.map(emp => (
+              <Button
+                key={emp}
+                variant={selectedEmployee === emp ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setSelectedEmployee(emp)}
+                className="whitespace-nowrap"
+              >
+                <div className={`w-3 h-3 rounded-full ${COLORS[emp]} mr-2`} />
+                {emp}
+              </Button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto p-3 pb-32">
+        <div className="space-y-2">
+          {Object.keys(filteredData).sort().map(date => {
+            const { day, weekday } = formatDate(date);
+            
+            return (
+              <Card key={date} className="overflow-hidden">
+                <div className="bg-muted/30 px-3 py-2 border-b border-border">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="text-2xl font-bold">{day}</div>
+                      <div className="text-xs text-muted-foreground uppercase">{weekday}</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-3 space-y-3">
+                  {filteredData[date].map((dayData) => {
+                    const salary = calculateDaySalary(dayData);
+                    const hours1 = calculateHours(dayData.shift1Start, dayData.shift1End);
+                    const hours2 = dayData.hasShift2 ? calculateHours(dayData.shift2Start, dayData.shift2End) : 0;
+                    
+                    return (
+                      <div key={`${date}-${dayData.employee}`} className="border border-border rounded-lg p-3">
+                        <div className="flex items-center gap-2 mb-3">
                           <div className={`w-4 h-4 rounded-full ${COLORS[dayData.employee]}`} />
-                          <span className="text-xs font-medium">{dayData.employee}</span>
+                          <span className="font-semibold">{dayData.employee}</span>
+                          {salary > 0 && (
+                            <span className="ml-auto text-lg font-bold text-primary">
+                              {salary.toLocaleString('ru-RU')} ₽
+                            </span>
+                          )}
                         </div>
-                      </TableCell>
-                      <TableCell className="p-2">
-                        <div className="flex flex-col gap-1">
-                          <div className="flex gap-1 items-center">
-                            <Input
-                              type="time"
-                              value={dayData.shift1Start}
-                              onChange={(e) => updateSchedule(date, dayData.employee, 'shift1Start', e.target.value)}
-                              className="w-20 h-7 text-xs p-1"
-                            />
-                            <span className="text-xs">–</span>
-                            <Input
-                              type="time"
-                              value={dayData.shift1End}
-                              onChange={(e) => updateSchedule(date, dayData.employee, 'shift1End', e.target.value)}
-                              className="w-20 h-7 text-xs p-1"
-                            />
+
+                        <div className="space-y-3">
+                          <div>
+                            <div className="text-xs text-muted-foreground mb-1">Смена 1</div>
+                            <div className="flex gap-2 items-center">
+                              <Input
+                                type="time"
+                                value={dayData.shift1Start}
+                                onChange={(e) => updateSchedule(date, dayData.employee, 'shift1Start', e.target.value)}
+                                className="flex-1"
+                              />
+                              <span className="text-muted-foreground">—</span>
+                              <Input
+                                type="time"
+                                value={dayData.shift1End}
+                                onChange={(e) => updateSchedule(date, dayData.employee, 'shift1End', e.target.value)}
+                                className="flex-1"
+                              />
+                            </div>
+                            {hours1 > 0 && (
+                              <div className="text-xs text-muted-foreground mt-1">
+                                {hours1.toFixed(1)} ч × 250₽ = {(hours1 * 250).toFixed(0)}₽
+                              </div>
+                            )}
                           </div>
+
+                          <div className="flex items-center gap-2">
+                            <Checkbox
+                              checked={dayData.hasShift2}
+                              onCheckedChange={(checked) => 
+                                updateSchedule(date, dayData.employee, 'hasShift2', checked)
+                              }
+                            />
+                            <span className="text-sm">Вторая смена</span>
+                          </div>
+
                           {dayData.hasShift2 && (
-                            <div className="flex gap-1 items-center">
+                            <div>
+                              <div className="text-xs text-muted-foreground mb-1">Смена 2</div>
+                              <div className="flex gap-2 items-center">
+                                <Input
+                                  type="time"
+                                  value={dayData.shift2Start}
+                                  onChange={(e) => updateSchedule(date, dayData.employee, 'shift2Start', e.target.value)}
+                                  className="flex-1"
+                                />
+                                <span className="text-muted-foreground">—</span>
+                                <Input
+                                  type="time"
+                                  value={dayData.shift2End}
+                                  onChange={(e) => updateSchedule(date, dayData.employee, 'shift2End', e.target.value)}
+                                  className="flex-1"
+                                />
+                              </div>
+                              {hours2 > 0 && (
+                                <div className="text-xs text-muted-foreground mt-1">
+                                  {hours2.toFixed(1)} ч × 250₽ = {(hours2 * 250).toFixed(0)}₽
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <label className="text-xs text-muted-foreground block mb-1">Заказов</label>
                               <Input
-                                type="time"
-                                value={dayData.shift2Start}
-                                onChange={(e) => updateSchedule(date, dayData.employee, 'shift2Start', e.target.value)}
-                                className="w-20 h-7 text-xs p-1"
+                                type="number"
+                                min="0"
+                                value={dayData.orders || ''}
+                                onChange={(e) => updateSchedule(date, dayData.employee, 'orders', parseInt(e.target.value) || 0)}
                               />
-                              <span className="text-xs">–</span>
+                            </div>
+                            <div>
+                              <label className="text-xs text-muted-foreground block mb-1">Доплата за заказ</label>
                               <Input
-                                type="time"
-                                value={dayData.shift2End}
-                                onChange={(e) => updateSchedule(date, dayData.employee, 'shift2End', e.target.value)}
-                                className="w-20 h-7 text-xs p-1"
+                                type="number"
+                                min="0"
+                                value={dayData.bonus || ''}
+                                onChange={(e) => updateSchedule(date, dayData.employee, 'bonus', parseInt(e.target.value) || 0)}
                               />
+                            </div>
+                          </div>
+
+                          {dayData.orders > 0 && (
+                            <div className="text-xs text-muted-foreground">
+                              {dayData.orders} × (50₽ + {dayData.bonus}₽) = {(dayData.orders * (50 + dayData.bonus))}₽
                             </div>
                           )}
                         </div>
-                      </TableCell>
-                      <TableCell className="p-2 text-center">
-                        <Checkbox
-                          checked={dayData.hasShift2}
-                          onCheckedChange={(checked) => updateSchedule(date, dayData.employee, 'hasShift2', checked)}
-                        />
-                      </TableCell>
-                      <TableCell className="text-center font-semibold text-xs p-2">
-                        {(calculateHours(dayData.shift1Start, dayData.shift1End) + 
-                          (dayData.hasShift2 ? calculateHours(dayData.shift2Start, dayData.shift2End) : 0)).toFixed(1)}
-                      </TableCell>
-                      <TableCell className="p-2">
-                        <Input
-                          type="number"
-                          min="0"
-                          value={dayData.orders}
-                          onChange={(e) => updateSchedule(date, dayData.employee, 'orders', Number(e.target.value))}
-                          className="w-14 h-7 text-xs text-center p-1"
-                        />
-                      </TableCell>
-                      <TableCell className="p-2">
-                        <Input
-                          type="number"
-                          min="0"
-                          value={dayData.bonus}
-                          onChange={(e) => updateSchedule(date, dayData.employee, 'bonus', Number(e.target.value))}
-                          className="w-14 h-7 text-xs text-center p-1"
-                        />
-                      </TableCell>
-                      <TableCell className="text-center p-2">
-                        <span className="font-bold text-sm text-primary">
-                          {calculateDaySalary(dayData).toFixed(0)}₽
-                        </span>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        </Card>
+                      </div>
+                    );
+                  })}
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {EMPLOYEES.map((emp) => (
-            <Card
-              key={emp}
-              className="p-4 bg-card/95 backdrop-blur-sm hover:scale-105 transition-transform"
-            >
-              <div className="flex items-center gap-2 mb-2">
-                <div className={`w-8 h-8 rounded-full ${COLORS[emp]}`} />
-                <span className="font-semibold text-sm">{emp}</span>
-              </div>
-              <div className="text-2xl font-heading font-bold text-primary">
-                {getMonthTotal(emp).toLocaleString()}₽
-              </div>
-              <div className="text-xs text-muted-foreground">за месяц</div>
-            </Card>
-          ))}
-          <Card className="p-4 bg-gradient-to-br from-primary/20 to-accent/20 border-2 border-primary hover:scale-105 transition-transform">
-            <div className="flex items-center gap-2 mb-2">
-              <Icon name="Wallet" size={20} className="text-primary" />
-              <span className="font-semibold text-sm">Всего</span>
-            </div>
-            <div className="text-2xl font-heading font-bold text-primary">
-              {EMPLOYEES.reduce((sum, emp) => sum + getMonthTotal(emp), 0).toLocaleString()}₽
-            </div>
-            <div className="text-xs text-muted-foreground">общий фонд</div>
-          </Card>
+      <div className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur-sm border-t border-border p-3 shadow-lg">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-sm text-muted-foreground mb-2">Итого за месяц:</div>
+          <div className="space-y-2">
+            {EMPLOYEES.map(emp => {
+              const total = getMonthTotal(emp);
+              if (selectedEmployee && selectedEmployee !== emp) return null;
+              
+              return (
+                <div key={emp} className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className={`w-3 h-3 rounded-full ${COLORS[emp]}`} />
+                    <span className="font-medium">{emp}</span>
+                  </div>
+                  <span className="text-lg font-bold">
+                    {total.toLocaleString('ru-RU')} ₽
+                  </span>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
     </div>
