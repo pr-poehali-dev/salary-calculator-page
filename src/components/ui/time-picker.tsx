@@ -50,8 +50,10 @@ export const TimePicker = ({ value, onChange, className = '' }: TimePickerProps)
     setIsOpen(false);
   };
 
-  const hourOptions = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
-  const minuteOptions = ['00', '15', '30', '45'];
+  const hourOptions = [
+    '07', '08', '09', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23', '00', '01'
+  ];
+  const minuteOptions = ['00'];
 
   return (
     <div className={`relative ${className}`} ref={dropdownRef}>
@@ -68,41 +70,24 @@ export const TimePicker = ({ value, onChange, className = '' }: TimePickerProps)
 
       {isOpen && (
         <div className="absolute z-50 mt-2 w-full bg-popover border border-border rounded-lg shadow-lg p-4">
-          <div className="flex gap-3 mb-4">
-            <div className="flex-1">
-              <div className="text-xs text-muted-foreground mb-2 text-center">Часы</div>
-              <div className="max-h-48 overflow-y-auto border border-border rounded-md">
-                {hourOptions.map((h) => (
-                  <button
-                    key={h}
-                    type="button"
-                    onClick={() => setHours(h)}
-                    className={`w-full px-3 py-2 text-sm text-left hover:bg-accent transition-colors ${
-                      hours === h ? 'bg-primary text-primary-foreground font-semibold' : ''
-                    }`}
-                  >
-                    {h}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="flex-1">
-              <div className="text-xs text-muted-foreground mb-2 text-center">Минуты</div>
-              <div className="border border-border rounded-md">
-                {minuteOptions.map((m) => (
-                  <button
-                    key={m}
-                    type="button"
-                    onClick={() => setMinutes(m)}
-                    className={`w-full px-3 py-2 text-sm text-left hover:bg-accent transition-colors ${
-                      minutes === m ? 'bg-primary text-primary-foreground font-semibold' : ''
-                    }`}
-                  >
-                    {m}
-                  </button>
-                ))}
-              </div>
+          <div className="mb-4">
+            <div className="text-xs text-muted-foreground mb-2 text-center">Часы (07:00 - 01:00)</div>
+            <div className="max-h-64 overflow-y-auto border border-border rounded-md">
+              {hourOptions.map((h) => (
+                <button
+                  key={h}
+                  type="button"
+                  onClick={() => {
+                    setHours(h);
+                    setMinutes('00');
+                  }}
+                  className={`w-full px-4 py-2 text-base text-center hover:bg-accent transition-colors ${
+                    hours === h ? 'bg-primary text-primary-foreground font-semibold' : ''
+                  }`}
+                >
+                  {h}:00
+                </button>
+              ))}
             </div>
           </div>
 

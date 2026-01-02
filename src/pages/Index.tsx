@@ -50,33 +50,33 @@ const Index = () => {
       const response = await fetch(`${API_URL}?month=${month}`);
       const data = await response.json();
       
-      if (data && data.length > 0) {
-        setScheduleData(data);
-      } else {
-        // Создаем пустое расписание для всего месяца
-        const emptyData: DayData[] = [];
-        const [year, m] = month.split('-').map(Number);
-        const days = new Date(year, m, 0).getDate();
+      // ВСЕГДА создаем полное расписание на весь месяц
+      const [year, m] = month.split('-').map(Number);
+      const days = new Date(year, m, 0).getDate();
+      const fullSchedule: DayData[] = [];
+      
+      for (let day = 1; day <= days; day++) {
+        const dateStr = `${year}-${String(m).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
         
-        for (let day = 1; day <= days; day++) {
-          const dateStr = `${year}-${String(m).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        EMPLOYEES.forEach((employee) => {
+          // Ищем существующие данные из базы
+          const existing = data?.find((d: DayData) => d.date === dateStr && d.employee === employee);
           
-          EMPLOYEES.forEach((employee) => {
-            emptyData.push({
-              date: dateStr,
-              employee,
-              shift1Start: '',
-              shift1End: '',
-              hasShift2: false,
-              shift2Start: '',
-              shift2End: '',
-              orders: 0,
-              bonus: 0
-            });
+          fullSchedule.push(existing || {
+            date: dateStr,
+            employee,
+            shift1Start: '',
+            shift1End: '',
+            hasShift2: false,
+            shift2Start: '',
+            shift2End: '',
+            orders: 0,
+            bonus: 0
           });
-        }
-        setScheduleData(emptyData);
+        });
       }
+      
+      setScheduleData(fullSchedule);
     } catch (error) {
       console.error('Ошибка загрузки:', error);
     } finally {
