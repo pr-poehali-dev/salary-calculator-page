@@ -10,20 +10,78 @@ interface IOSKeyboardProps {
 
 export const IOSKeyboard = ({ value, onChange, onClose, placeholder = '0' }: IOSKeyboardProps) => {
   const [localValue, setLocalValue] = useState(value);
+  const audioContextRef = useRef<AudioContext | null>(null);
+
+  const playClickSound = () => {
+    try {
+      if (!audioContextRef.current) {
+        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      }
+      const ctx = audioContextRef.current;
+      const now = ctx.currentTime;
+      
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      
+      osc.frequency.value = 1200;
+      osc.type = 'sine';
+      
+      gain.gain.setValueAtTime(0.1, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.05);
+      
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      
+      osc.start(now);
+      osc.stop(now + 0.05);
+    } catch (error) {
+      console.log('Звук недоступен');
+    }
+  };
+
+  const playDeleteSound = () => {
+    try {
+      if (!audioContextRef.current) {
+        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      }
+      const ctx = audioContextRef.current;
+      const now = ctx.currentTime;
+      
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      
+      osc.frequency.value = 800;
+      osc.type = 'sine';
+      
+      gain.gain.setValueAtTime(0.08, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.04);
+      
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      
+      osc.start(now);
+      osc.stop(now + 0.04);
+    } catch (error) {
+      console.log('Звук недоступен');
+    }
+  };
 
   const handleNumberClick = (num: string) => {
+    playClickSound();
     const newValue = localValue === '0' ? num : localValue + num;
     setLocalValue(newValue);
     onChange(newValue);
   };
 
   const handleDelete = () => {
+    playDeleteSound();
     const newValue = localValue.slice(0, -1) || '0';
     setLocalValue(newValue);
     onChange(newValue);
   };
 
   const handleClear = () => {
+    playDeleteSound();
     setLocalValue('0');
     onChange('0');
   };
