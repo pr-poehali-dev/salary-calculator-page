@@ -58,6 +58,8 @@ const Index = () => {
   const isSavingRef = useRef(false);
   const pendingChangesRef = useRef<Set<string>>(new Set());
   const audioContextRef = useRef<AudioContext | null>(null);
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const hasScrolledToTodayRef = useRef(false);
 
   const daysInMonth = useMemo(() => {
     const [year, month] = currentMonth.split('-').map(Number);
@@ -123,7 +125,21 @@ const Index = () => {
 
   useEffect(() => {
     loadSchedule(currentMonth, false);
+    hasScrolledToTodayRef.current = false;
   }, [currentMonth]);
+
+  useEffect(() => {
+    if (!loading && scheduleData.length > 0 && scrollContainerRef.current && !hasScrolledToTodayRef.current) {
+      const today = new Date();
+      const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+      
+      const todayElement = document.querySelector(`[data-date="${todayStr}"]`);
+      if (todayElement) {
+        todayElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        hasScrolledToTodayRef.current = true;
+      }
+    }
+  }, [loading, scheduleData]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -496,7 +512,7 @@ const Index = () => {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto p-3 pb-6 overflow-visible">
+      <div ref={scrollContainerRef} className="max-w-7xl mx-auto p-3 pb-6 overflow-visible">
         {viewMode === 'edit' ? (
           <div className="space-y-2 overflow-visible">
             {Object.keys(filteredData).sort().map(date => {
@@ -504,7 +520,7 @@ const Index = () => {
               const dayBonus = filteredData[date][0]?.bonus || 0;
             
             return (
-              <Card key={date} className="overflow-visible relative z-10 bg-white/70 dark:bg-slate-800/70 backdrop-blur-md border-gray-200/60 dark:border-slate-700/60 shadow-sm hover:shadow-md transition-all rounded-2xl">
+              <Card key={date} data-date={date} className="overflow-visible relative z-10 bg-white/70 dark:bg-slate-800/70 backdrop-blur-md border-gray-200/60 dark:border-slate-700/60 shadow-sm hover:shadow-md transition-all rounded-2xl">
                 <div className="bg-gradient-to-r from-blue-50/50 to-indigo-50/30 px-3 py-2 border-b border-gray-200/50">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -661,7 +677,7 @@ const Index = () => {
               if (!hasAnyData) return null;
               
               return (
-                <Card key={date} className="overflow-hidden bg-white/70 dark:bg-slate-800/70 backdrop-blur-md border-gray-200/60 dark:border-slate-700/60 shadow-sm hover:shadow-md transition-all rounded-2xl">
+                <Card key={date} data-date={date} className="overflow-hidden bg-white/70 dark:bg-slate-800/70 backdrop-blur-md border-gray-200/60 dark:border-slate-700/60 shadow-sm hover:shadow-md transition-all rounded-2xl">
                   <div className="bg-gradient-to-r from-blue-50/50 to-indigo-50/30 dark:from-slate-700/30 dark:to-slate-600/20 px-3 py-2 border-b border-gray-200/50 dark:border-slate-700/50">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
