@@ -237,6 +237,14 @@ def parse_shift_request(text: str, user: dict) -> bool:
     if not any(kw in text_lower for kw in keywords):
         return False
     
+    target_employee = None
+    if 'никит' in text_lower:
+        target_employee = 'Никита'
+    elif 'андр' in text_lower:
+        target_employee = 'Андрей'
+    elif 'денис' in text_lower:
+        target_employee = 'Денис'
+    
     date_obj = None
     if 'сегодня' in text_lower:
         date_obj = datetime.now()
@@ -281,7 +289,7 @@ def parse_shift_request(text: str, user: dict) -> bool:
     if not start_time or not end_time:
         return False
     
-    employee_name = get_employee_name(user)
+    employee_name = target_employee if target_employee else get_employee_name(user)
     success = save_shift_to_db(employee_name, date_obj.strftime('%Y-%m-%d'), start_time, end_time)
     
     if success:
