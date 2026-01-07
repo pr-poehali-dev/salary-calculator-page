@@ -235,6 +235,11 @@ def handle_smart_message(chat_id: int, text: str, user: dict, message: dict):
             show_salary_smart(chat_id, user)
         return
     
+    if any(word in text_lower for word in ['совет', 'рекоменд', 'персональн', 'как улучш', 'что делать']):
+        if any(name in text_lower for name in ['никит', 'андр', 'денис']):
+            show_personal_advice(chat_id, text_lower)
+            return
+    
     respond_with_ai(chat_id, text, user)
 
 
@@ -1015,6 +1020,151 @@ def show_employee_day_info(chat_id: int, text_lower: str):
     except Exception as e:
         print(f"Error showing employee day info: {e}")
         send_message(chat_id, "❌ Ошибка при загрузке информации")
+
+
+def show_personal_advice(chat_id: int, text_lower: str):
+    '''Показать персональные советы сотруднику'''
+    conn = get_db_connection()
+    if not conn:
+        send_message(chat_id, "❌ Не могу подключиться к базе")
+        return
+    
+    target_employee = None
+    if 'никит' in text_lower:
+        target_employee = 'Никита'
+    elif 'андр' in text_lower:
+        target_employee = 'Андрей'
+    elif 'денис' in text_lower:
+        target_employee = 'Денис'
+    
+    if not target_employee:
+        send_message(chat_id, "Не понял, кому дать советы? 🤔")
+        return
+    
+    try:
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        today = datetime.now()
+        month_start = today.replace(day=1).strftime('%Y-%m-%d')
+        
+        cur.execute(
+            f"SELECT * FROM schedule WHERE employee = '{target_employee}' "
+            f"AND date >= '{month_start}' AND date < '{today.strftime('%Y-%m-%d')}' "
+            f"ORDER BY date"
+        )
+        shifts = cur.fetchall()
+        
+        work_shifts = [s for s in shifts if s['shift1_start'] and str(s['shift1_start']) != '00:00:00']
+        
+        if not work_shifts:
+            emoji = {'Никита': '👨‍💼', 'Андрей': '🧑‍💻', 'Денис': '👨‍🔧'}.get(target_employee, '👤')
+            text = f"{emoji} <b>Персональные советы для {target_employee}</b>\n\n"
+            text += "📊 <b>Анализ активности:</b>\n"
+            text += f"❌ В этом месяце пока нет отработанных смен\n\n"
+            text += "💡 <b>Рекомендации:</b>\n\n"
+            text += "🔥 <b>Возьми больше смен!</b>\n"
+            text += "   Сейчас у тебя 0 часов. Чтобы зарабатывать, нужно брать смены.\n\n"
+            text += "📅 <b>План действий:</b>\n"
+            text += "   1. Напиши мне: «Поставь смену завтра с 10 до 18»\n"
+            text += "   2. Работай стабильно 5-6 дней в неделю\n"
+            text += "   3. Следи за заказами — они дают бонусы!\n\n"
+            text += "💰 <b>Потенциал:</b>\n"
+            text += f"   Если будешь работать 8ч × 20 дней:\n"
+            text += f"   {20 * 8 * 250:,.0f}₽ почасовая + бонусы за заказы\n\n"
+            text += "💪 Начни сегодня — стань лидером команды!"
+            
+            send_message(chat_id, text)
+            cur.close()
+            conn.close()
+            return
+        
+        total_hours = sum(
+            calculate_hours(s['shift1_start'], s['shift1_end']) +
+            (calculate_hours(s['shift2_start'], s['shift2_end']) if s['has_shift2'] else 0)
+            for s in work_shifts
+        )
+        total_salary = sum(calculate_day_salary(s) for s in work_shifts)
+        total_orders = sum(s['orders'] or 0 for s in work_shifts)
+        days_worked = len(work_shifts)
+        
+        cur.execute(f"SELECT * FROM schedule WHERE date >= '{month_start}' ORDER BY employee")
+        all_shifts = cur.fetchall()
+        
+        team_stats = {}
+        for emp in ['Никита', 'Андрей', 'Денис']:
+            emp_shifts = [s for s in all_shifts if s['employee'] == emp and s['shift1_start'] and str(s['shift1_start']) != '00:00:00']
+            team_hours = sum(
+                calculate_hours(s['shift1_start'], s['shift1_end']) +
+                (calculate_hours(s['shift2_start'], s['shift2_end']) if s['has_shift2'] else 0)
+                for s in emp_shifts
+            )
+            team_stats[emp] = {
+                'hours': team_hours,
+                'days': len(emp_shifts),
+                'salary': sum(calculate_day_salary(s) for s in emp_shifts)
+            }
+        
+        sorted_by_hours = sorted(team_stats.items(), key=lambda x: x[1]['hours'], reverse=True)
+        position = [i for i, (emp, _) in enumerate(sorted_by_hours) if emp == target_employee][0] + 1
+        
+        emoji = {'Никита': '👨‍💼', 'Андрей': '🧑‍💻', 'Денис': '👨‍🔧'}.get(target_employee, '👤')
+        
+        text = f"{emoji} <b>Персональные советы для {target_employee}</b>\n\n"
+        text += f"📊 <b>Твоя статистика за {today.strftime('%B')}:</b>\n"
+        text += f"   💼 Смен: {days_worked}\n"
+        text += f"   ⏱ Часов: {total_hours:.1f}ч\n"
+        text += f"   📦 Заказов: {total_orders}\n"
+        text += f"   💰 Заработано: {total_salary:,.0f}₽\n\n"
+        
+        text += f"🏆 <b>Позиция в команде:</b> {position}-е место\n\n"
+        
+        text += "💡 <b>Персональные рекомендации:</b>\n\n"
+        
+        avg_hours_per_day = total_hours / days_worked if days_worked > 0 else 0
+        
+        if total_hours < 40:
+            text += "🔥 <b>Возьми больше смен!</b>\n"
+            text += f"   У тебя всего {total_hours:.1f}ч. Для хорошего заработка нужно минимум 120ч в месяц.\n\n"
+        elif total_hours < 120:
+            text += "📈 <b>Увеличь рабочую нагрузку</b>\n"
+            text += f"   {total_hours:.1f}ч — это хорошо, но можно больше! Цель: 160ч/месяц.\n\n"
+        else:
+            text += "🌟 <b>Отличная активность!</b>\n"
+            text += f"   {total_hours:.1f}ч — ты работаешь стабильно. Так держать!\n\n"
+        
+        if avg_hours_per_day < 6:
+            text += "⏰ <b>Удлини смены</b>\n"
+            text += f"   Средняя смена: {avg_hours_per_day:.1f}ч. Лучше брать 8-часовые смены.\n\n"
+        
+        if total_orders < total_hours * 5:
+            text += "📦 <b>Работай над заказами</b>\n"
+            text += f"   {total_orders} заказов за {total_hours:.1f}ч. Цель: минимум 5 заказов в час.\n\n"
+        else:
+            text += "🎯 <b>Отличная работа с заказами!</b>\n"
+            text += f"   {total_orders} заказов — продолжай в том же духе!\n\n"
+        
+        if position == 1:
+            text += "👑 <b>Ты лидер команды!</b>\n"
+            text += "   Продолжай держать планку высоко — остальные равняются на тебя!\n\n"
+        else:
+            leader = sorted_by_hours[0]
+            gap = leader[1]['hours'] - total_hours
+            text += f"🎯 <b>До 1-го места осталось {gap:.1f}ч</b>\n"
+            text += f"   Сейчас лидирует {leader[0]}. Поработай усерднее!\n\n"
+        
+        potential_salary = (160 * 250) + (160 * 5 * 50)
+        text += f"💰 <b>Твой потенциал:</b>\n"
+        text += f"   При 160ч/месяц + 800 заказов = {potential_salary:,.0f}₽\n\n"
+        text += "💪 <b>Ты можешь больше — дерзай!</b>"
+        
+        send_message(chat_id, text)
+        cur.close()
+        conn.close()
+    
+    except Exception as e:
+        print(f"Error showing personal advice: {e}")
+        import traceback
+        print(traceback.format_exc())
+        send_message(chat_id, "❌ Ошибка при анализе данных")
 
 
 def show_team_schedule(chat_id: int, text_lower: str):
