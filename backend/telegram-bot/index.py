@@ -385,12 +385,13 @@ def respond_with_ai(chat_id: int, text: str, user: dict):
 
     try:
         api_key = os.environ.get('YANDEX_API_KEY')
-        folder_id = os.environ.get('YANDEX_FOLDER_ID')
+        folder_id = os.environ.get('YANDEX_FOLDER_ID', 'b1gtukkj95lucj7u4je6')
         
         print(f"AI request from {user_name}: {text[:100]}")
+        print(f"Using folder_id: {folder_id}")
         
-        if not api_key or not folder_id:
-            print(f"Missing credentials: api_key={bool(api_key)}, folder_id={bool(folder_id)}")
+        if not api_key:
+            print(f"Missing API key: api_key={bool(api_key)}")
             send_message(chat_id, "Извини, у меня проблемы с подключением 😔")
             return
         
