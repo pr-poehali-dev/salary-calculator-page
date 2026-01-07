@@ -67,12 +67,15 @@ def handle_message(message: dict):
         return
     
     if text.startswith('/start'):
+        employee_name = get_employee_name(message['from'])
         send_message(chat_id, 
-            "👋 Привет! Я бот-помощник для курьеров.\n\n"
+            f"👋 Привет, {user_name}!\n"
+            f"Я определил тебя как: {employee_name}\n\n"
             "📋 Команды:\n"
             "/schedule - Моё расписание\n"
             "/add_shift - Добавить смену\n"
             "/salary - Моя зарплата\n"
+            "/setname - Изменить имя\n"
             "/help - Помощь\n\n"
             "💬 Можешь задать мне любой вопрос о работе курьера или просто поболтать!")
         return
@@ -90,7 +93,9 @@ def handle_message(message: dict):
             "• Покажи мою зарплату\n"
             "• Как оформить возврат?\n"
             "• Расскажи анекдот\n\n"
-            "В группе упомяни меня @" + (get_bot_username() or 'бот'))
+            "👥 Работа в группе:\n"
+            "Упомяни меня @" + (get_bot_username() or 'бот') + "\n"
+            "Используй /setname чтобы привязать свой Telegram к имени в расписании")
         return
     
     if text.startswith('/schedule'):
@@ -105,7 +110,23 @@ def handle_message(message: dict):
         show_salary(chat_id, message)
         return
     
+    if text.startswith('/setname'):
+        show_name_menu(chat_id, message)
+        return
+    
     respond_with_ai(chat_id, text, message)
+
+
+def show_name_menu(chat_id: int, message: dict):
+    '''Показать меню выбора имени'''
+    keyboard = {
+        'inline_keyboard': [
+            [{'text': '👤 Никита', 'callback_data': 'setname_Никита'}],
+            [{'text': '👤 Андрей', 'callback_data': 'setname_Андрей'}],
+            [{'text': '👤 Денис', 'callback_data': 'setname_Денис'}]
+        ]
+    }
+    send_message(chat_id, "Выбери своё имя в системе:", keyboard)
 
 
 def handle_callback(callback: dict):
@@ -123,11 +144,38 @@ def handle_callback(callback: dict):
     elif data.startswith('confirm_shift_'):
         save_shift_from_callback(data, user, chat_id, message_id)
     
+    elif data.startswith('setname_'):
+        employee_name = data.replace('setname_', '')
+        save_user_name(user['id'], employee_name)
+        edit_message(chat_id, message_id, f"✅ Отлично! Теперь ты — {employee_name}")
+    
     answer_callback(callback['id'])
+
+
+def save_user_name(telegram_id: int, employee_name: str):
+    '''Сохранить привязку Telegram ID к имени сотрудника'''
+    conn = get_db_connection()
+    if not conn:
+        return
+    
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            f"INSERT INTO telegram_users (telegram_id, employee_name) "
+            f"VALUES ({telegram_id}, '{employee_name}') "
+            f"ON CONFLICT (telegram_id) DO UPDATE SET employee_name = '{employee_name}'"
+        )
+        conn.commit()
+        cur.close()
+        conn.close()
+        print(f"Saved mapping: {telegram_id} -> {employee_name}")
+    except Exception as e:
+        print(f"Error saving user name: {e}")
 
 
 def show_schedule(chat_id: int, message: dict):
     '''Показать расписание на неделю'''
+    employee_name = get_employee_name(message['from'])
     user_name = get_user_name(message['from'])
     
     conn = get_db_connection()
@@ -143,7 +191,7 @@ def show_schedule(chat_id: int, message: dict):
         week_end = week_start + timedelta(days=6)
         
         cur.execute(
-            f"SELECT * FROM schedule WHERE employee = '{user_name}' "
+            f"SELECT * FROM schedule WHERE employee = '{employee_name}' "
             f"AND date >= '{week_start.strftime('%Y-%m-%d')}' "
             f"AND date <= '{week_end.strftime('%Y-%m-%d')}' "
             f"ORDER BY date"
@@ -154,7 +202,7 @@ def show_schedule(chat_id: int, message: dict):
             send_message(chat_id, f"📅 У тебя пока нет смен на этой неделе\n\nИспользуй /add_shift чтобы добавить")
             return
         
-        text = f"📅 Расписание {user_name}\n"
+        text = f"📅 Расписание {employee_name}\n"
         text += f"Неделя: {week_start.strftime('%d.%m')} - {week_end.strftime('%d.%m')}\n\n"
         
         total_hours = 0
@@ -239,6 +287,7 @@ def save_shift_from_callback(data: str, user: dict, chat_id: int, message_id: in
 
 def show_salary(chat_id: int, message: dict):
     '''Показать зарплату за месяц'''
+    employee_name = get_employee_name(message['from'])
     user_name = get_user_name(message['from'])
     
     conn = get_db_connection()
@@ -253,7 +302,7 @@ def show_salary(chat_id: int, message: dict):
         month_start = today.replace(day=1).strftime('%Y-%m-%d')
         
         cur.execute(
-            f"SELECT * FROM schedule WHERE employee = '{user_name}' "
+            f"SELECT * FROM schedule WHERE employee = '{employee_name}' "
             f"AND date >= '{month_start}' "
             f"ORDER BY date"
         )
@@ -283,7 +332,7 @@ def show_salary(chat_id: int, message: dict):
         month_name = today.strftime('%B %Y')
         
         text = f"💰 Зарплата за {month_name}\n\n"
-        text += f"👤 {user_name}\n\n"
+        text += f"👤 {employee_name}\n\n"
         text += f"⏱ Отработано часов: {total_hours:.1f}\n"
         text += f"📦 Доставлено заказов: {total_orders}\n\n"
         text += f"💵 Итого: {total_salary:,.0f} ₽\n\n"
@@ -414,7 +463,44 @@ def calculate_day_salary(shift: dict) -> float:
 
 
 def get_user_name(user: dict) -> str:
-    '''Получить имя пользователя'''
+    '''Получить имя пользователя из Telegram'''
+    return user.get('first_name', 'Пользователь')
+
+
+def get_employee_name(user: dict) -> str:
+    '''Получить имя сотрудника для базы данных'''
+    telegram_id = user.get('id')
+    first_name = user.get('first_name', '').lower()
+    username = user.get('username', '').lower()
+    
+    name_mapping = {
+        'никита': 'Никита',
+        'nikita': 'Никита',
+        'андрей': 'Андрей',
+        'andrey': 'Андрей',
+        'andrei': 'Андрей',
+        'денис': 'Денис',
+        'denis': 'Денис'
+    }
+    
+    if first_name in name_mapping:
+        return name_mapping[first_name]
+    if username in name_mapping:
+        return name_mapping[username]
+    
+    conn = get_db_connection()
+    if conn:
+        try:
+            cur = conn.cursor()
+            cur.execute(f"SELECT employee_name FROM telegram_users WHERE telegram_id = {telegram_id}")
+            result = cur.fetchone()
+            if result:
+                return result[0]
+            cur.close()
+            conn.close()
+        except:
+            pass
+    
     return user.get('first_name', 'Пользователь')
 
 
