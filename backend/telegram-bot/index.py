@@ -870,15 +870,25 @@ def save_user_name(telegram_id: int, employee_name: str):
         print(f"Error saving user name: {e}")
 
 
-def calculate_hours(start: str, end: str) -> float:
-    '''Расчёт количества часов между временем'''
+def calculate_hours(start, end) -> float:
+    '''Расчёт количества часов между временем (принимает str или datetime.time)'''
     if not start or not end:
         return 0
     try:
-        start_parts = start.split(':')
-        end_parts = end.split(':')
-        start_h, start_m = int(start_parts[0]), int(start_parts[1])
-        end_h, end_m = int(end_parts[0]), int(end_parts[1])
+        from datetime import time
+        
+        if isinstance(start, time):
+            start_h, start_m = start.hour, start.minute
+        else:
+            start_parts = str(start).split(':')
+            start_h, start_m = int(start_parts[0]), int(start_parts[1])
+        
+        if isinstance(end, time):
+            end_h, end_m = end.hour, end.minute
+        else:
+            end_parts = str(end).split(':')
+            end_h, end_m = int(end_parts[0]), int(end_parts[1])
+        
         start_minutes = start_h * 60 + start_m
         end_minutes = end_h * 60 + end_m
         return (end_minutes - start_minutes) / 60
