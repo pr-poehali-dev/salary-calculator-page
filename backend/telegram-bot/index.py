@@ -1082,7 +1082,7 @@ def show_team_stats(chat_id: int):
         
         stats = {}
         for emp in ['Никита', 'Андрей', 'Денис']:
-            emp_shifts = [s for s in all_shifts if s['employee'] == emp and s['shift1_start']]
+            emp_shifts = [s for s in all_shifts if s['employee'] == emp and s['shift1_start'] and str(s['shift1_start']) != '00:00:00']
             
             total_hours = sum(
                 calculate_hours(s['shift1_start'], s['shift1_end']) +
@@ -1146,7 +1146,7 @@ def show_team_salary(chat_id: int):
         
         total_all = 0
         for emp in ['Никита', 'Андрей', 'Денис']:
-            emp_shifts = [s for s in all_shifts if s['employee'] == emp and s['shift1_start']]
+            emp_shifts = [s for s in all_shifts if s['employee'] == emp and s['shift1_start'] and str(s['shift1_start']) != '00:00:00']
             
             total_salary = sum(calculate_day_salary(s) for s in emp_shifts)
             total_hours = sum(
