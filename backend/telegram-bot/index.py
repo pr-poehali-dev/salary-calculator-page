@@ -406,17 +406,21 @@ def respond_with_ai(chat_id: int, text: str, user: dict):
     user_name = get_user_name(user)
     employee_name = get_employee_name(user)
     
-    system_prompt = f"""Ты — личный помощник и друг для курьеров службы доставки. Твоё имя — Юра.
+    system_prompt = f"""Ты — Юра, личный помощник курьеров доставки. Дружелюбный, полезный, прикольный.
 
-Твои задачи:
-1. Отвечать на вопросы о работе курьера (правила доставки, документы, клиенты, возвраты)
-2. Давать полезные советы и поддержку
-3. Быть приятным собеседником на любые темы
-4. Поддерживать дружеский неформальный стиль
+Твои возможности (ВАЖНО — упоминай их в ответах):
+• Управление расписанием: "поставь смену завтра с 10 до 18"
+• Статистика: "кто сегодня работает?", "статистика команды"
+• Зарплаты: "сколько я заработал?", "зарплаты всех"
+• Консультации по работе курьера (возвраты, клиенты, документы)
+• Просто поболтать и поддержать 😊
 
-Пользователь: {employee_name} (в Telegram: {user_name})
+Когда тебя спрашивают "что ты умеешь?" — покажи КОНКРЕТНЫЕ примеры команд!
 
-Отвечай кратко (2-4 предложения), дружелюбно, по-простому. Используй смайлики где уместно."""
+Пользователь: {employee_name} (Telegram: {user_name})
+
+Стиль: короткие ответы (2-4 предложения), дружелюбно, по-русски, со смайликами. 
+Если вопрос про функции — перечисли примеры команд."""
 
     try:
         api_key = os.environ.get('YANDEX_API_KEY')
@@ -489,6 +493,35 @@ def handle_callback(callback: dict):
         employee_name = data.replace('setname_', '')
         save_user_name(user['id'], employee_name)
         edit_message(chat_id, message_id, f"✅ Отлично! Теперь ты — {employee_name}")
+    
+    elif data == 'cmd_today':
+        answer_callback(callback['id'], "Смотрю кто сегодня работает...")
+        show_team_schedule(chat_id, 'кто сегодня')
+    
+    elif data == 'cmd_tomorrow':
+        answer_callback(callback['id'], "Смотрю на завтра...")
+        show_team_schedule(chat_id, 'кто завтра')
+    
+    elif data == 'cmd_stats':
+        answer_callback(callback['id'], "Считаю статистику...")
+        show_team_stats(chat_id)
+    
+    elif data == 'cmd_salary':
+        answer_callback(callback['id'], "Смотрю зарплаты...")
+        show_team_salary(chat_id)
+    
+    elif data == 'cmd_faq':
+        answer_callback(callback['id'])
+        send_message(chat_id,
+            "<b>❓ Частые вопросы</b>\n\n"
+            "<b>Q: Как добавить смену?</b>\n"
+            "A: Напиши мне в личку: «Поставь смену завтра с 10 до 18»\n\n"
+            "<b>Q: Как посмотреть моё расписание?</b>\n"
+            "A: В личке напиши: «Моё расписание»\n\n"
+            "<b>Q: Как узнать зарплату?</b>\n"
+            "A: В личке: «Сколько я заработал?»\n\n"
+            "<b>Q: Что делать если клиент не отвечает?</b>\n"
+            "A: Просто спроси меня — я подскажу! 😊")
     
     answer_callback(callback['id'])
 
@@ -786,7 +819,7 @@ def show_group_info(chat_id: int):
     '''Показать инструкцию для группы'''
     text = (
         "👋 <b>Привет! Я — Юра, ваш умный помощник</b>\n\n"
-        "Работаю в группе — просто упомяните меня @couriers_helper_bot\n\n"
+        "Работаю в группе — упомяните меня @couriers_helper_bot\n\n"
         "<b>📅 Расписание команды:</b>\n"
         "• <i>кто сегодня работает?</i>\n"
         "• <i>кто завтра?</i>\n"
@@ -802,7 +835,24 @@ def show_group_info(chat_id: int):
         "━━━━━━━━━━━━━━━\n"
         "💡 <b>Команды:</b> /info — показать эту справку"
     )
-    send_message(chat_id, text)
+    
+    keyboard = {
+        'inline_keyboard': [
+            [
+                {'text': '👥 Кто сегодня?', 'callback_data': 'cmd_today'},
+                {'text': '📅 Кто завтра?', 'callback_data': 'cmd_tomorrow'}
+            ],
+            [
+                {'text': '📊 Статистика', 'callback_data': 'cmd_stats'},
+                {'text': '💰 Зарплаты', 'callback_data': 'cmd_salary'}
+            ],
+            [
+                {'text': '❓ Частые вопросы', 'callback_data': 'cmd_faq'}
+            ]
+        ]
+    }
+    
+    send_message(chat_id, text, keyboard)
 
 
 def send_message(chat_id: int, text: str, keyboard=None):
@@ -840,13 +890,18 @@ def edit_message(chat_id: int, message_id: int, text: str):
     )
 
 
-def answer_callback(callback_id: str):
+def answer_callback(callback_id: str, text: str = None):
     '''Ответить на callback query'''
     token = os.environ.get('TELEGRAM_BOT_TOKEN')
     if not token:
         return
     
+    data = {'callback_query_id': callback_id}
+    if text:
+        data['text'] = text
+        data['show_alert'] = False
+    
     requests.post(
         f'https://api.telegram.org/bot{token}/answerCallbackQuery',
-        json={'callback_query_id': callback_id}
+        json=data
     )
