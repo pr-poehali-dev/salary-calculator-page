@@ -540,9 +540,7 @@ def delete_shift_from_db(employee: str, date: str) -> bool:
     try:
         cur = conn.cursor()
         cur.execute(
-            f"UPDATE schedule SET shift1_start = '', shift1_end = '', "
-            f"shift2_start = '', shift2_end = '', has_shift2 = false "
-            f"WHERE employee = '{employee}' AND date = '{date}'"
+            f"DELETE FROM schedule WHERE employee = '{employee}' AND date = '{date}'"
         )
         conn.commit()
         cur.close()
