@@ -4,9 +4,10 @@ import requests
 from datetime import datetime, timedelta
 import psycopg2
 from psycopg2.extras import RealDictCursor
+import re
 
 def handler(event: dict, context) -> dict:
-    '''Telegram бот с ИИ для управления расписанием курьеров и общения в группе'''
+    '''Умный Telegram ассистент для курьеров с ИИ и управлением расписанием'''
     
     method = event.get('httpMethod', 'POST')
     
@@ -53,12 +54,12 @@ def handle_message(message: dict):
     '''Обработка входящих сообщений'''
     chat_id = message['chat']['id']
     text = message.get('text', '')
-    user_name = get_user_name(message['from'])
+    user = message['from']
+    user_name = get_user_name(user)
     
     print(f"Message from {user_name} (ID: {chat_id}): {text}")
     
     bot_username = get_bot_username()
-    
     is_group = message['chat']['type'] in ['group', 'supergroup']
     is_mentioned = f'@{bot_username}' in text if bot_username else False
     is_reply_to_bot = message.get('reply_to_message', {}).get('from', {}).get('is_bot', False)
@@ -66,126 +67,185 @@ def handle_message(message: dict):
     if is_group and not is_mentioned and not is_reply_to_bot:
         return
     
+    text = text.replace(f'@{bot_username}', '').strip() if bot_username else text
+    
     if text.startswith('/start'):
-        employee_name = get_employee_name(message['from'])
+        employee_name = get_employee_name(user)
         send_message(chat_id, 
             f"👋 Привет, {user_name}!\n"
-            f"Я определил тебя как: {employee_name}\n\n"
-            "📋 Команды:\n"
-            "/schedule - Моё расписание\n"
-            "/add_shift - Добавить смену\n"
-            "/salary - Моя зарплата\n"
-            "/setname - Изменить имя\n"
-            "/help - Помощь\n\n"
-            "💬 Можешь задать мне любой вопрос о работе курьера или просто поболтать!")
+            f"Я твой личный помощник. Определил тебя как: {employee_name}\n\n"
+            "💬 Просто пиши мне что нужно:\n"
+            "• «Поставь мне смену завтра с 10 до 18»\n"
+            "• «Покажи моё расписание»\n"
+            "• «Сколько я заработал?»\n"
+            "• «Как оформить возврат?»\n"
+            "• «Расскажи анекдот»\n\n"
+            "Если определил неправильно - напиши /setname")
         return
     
     if text.startswith('/help'):
         send_message(chat_id,
-            "❓ Помощь по боту\n\n"
-            "📋 Команды расписания:\n"
-            "/schedule - Показать расписание на неделю\n"
-            "/add_shift - Добавить новую смену\n"
-            "/salary - Посмотреть зарплату за месяц\n\n"
-            "💬 Умное общение:\n"
-            "Просто напиши что нужно сделать, например:\n"
-            "• Поставь мне смену завтра с 10 до 18\n"
-            "• Покажи мою зарплату\n"
-            "• Как оформить возврат?\n"
-            "• Расскажи анекдот\n\n"
-            "👥 Работа в группе:\n"
-            "Упомяни меня @" + (get_bot_username() or 'бот') + "\n"
-            "Используй /setname чтобы привязать свой Telegram к имени в расписании")
-        return
-    
-    if text.startswith('/schedule'):
-        show_schedule(chat_id, message)
-        return
-    
-    if text.startswith('/add_shift'):
-        show_add_shift_menu(chat_id, message)
-        return
-    
-    if text.startswith('/salary'):
-        show_salary(chat_id, message)
+            "❓ Я — твой умный помощник\n\n"
+            "Просто говори что нужно, я пойму:\n\n"
+            "📋 Расписание:\n"
+            "• «Поставь смену завтра 10-18»\n"
+            "• «Добавь мне послезавтра с 9 до 17»\n"
+            "• «Моё расписание»\n"
+            "• «Сколько я заработал?»\n\n"
+            "💬 Общение:\n"
+            "• «Как оформить возврат?»\n"
+            "• «Что делать если клиента нет?»\n"
+            "• «Расскажи что-нибудь»\n\n"
+            "⚙️ Команды:\n"
+            "/setname - изменить имя в системе")
         return
     
     if text.startswith('/setname'):
-        show_name_menu(chat_id, message)
+        show_name_menu(chat_id, user)
         return
     
-    respond_with_ai(chat_id, text, message)
+    handle_smart_message(chat_id, text, user, message)
 
 
-def show_name_menu(chat_id: int, message: dict):
-    '''Показать меню выбора имени'''
-    keyboard = {
-        'inline_keyboard': [
-            [{'text': '👤 Никита', 'callback_data': 'setname_Никита'}],
-            [{'text': '👤 Андрей', 'callback_data': 'setname_Андрей'}],
-            [{'text': '👤 Денис', 'callback_data': 'setname_Денис'}]
-        ]
-    }
-    send_message(chat_id, "Выбери своё имя в системе:", keyboard)
-
-
-def handle_callback(callback: dict):
-    '''Обработка нажатий на кнопки'''
-    chat_id = callback['message']['chat']['id']
-    message_id = callback['message']['message_id']
-    data = callback['data']
-    user = callback['from']
+def handle_smart_message(chat_id: int, text: str, user: dict, message: dict):
+    '''Умная обработка сообщений через ИИ'''
+    text_lower = text.lower()
     
-    if data.startswith('addshift_'):
-        parts = data.split('_')
-        date = parts[1]
-        show_time_input(chat_id, message_id, date, user)
+    shift_result = parse_shift_request(text, user)
+    if shift_result:
+        return
     
-    elif data.startswith('confirm_shift_'):
-        save_shift_from_callback(data, user, chat_id, message_id)
+    if any(word in text_lower for word in ['расписание', 'график', 'смены', 'когда работ', 'мои смены']):
+        show_schedule_smart(chat_id, user)
+        return
     
-    elif data.startswith('setname_'):
-        employee_name = data.replace('setname_', '')
-        save_user_name(user['id'], employee_name)
-        edit_message(chat_id, message_id, f"✅ Отлично! Теперь ты — {employee_name}")
+    if any(word in text_lower for word in ['зарплата', 'заработ', 'сколько', 'деньги', 'выплата']):
+        show_salary_smart(chat_id, user)
+        return
     
-    answer_callback(callback['id'])
+    respond_with_ai(chat_id, text, user)
 
 
-def save_user_name(telegram_id: int, employee_name: str):
-    '''Сохранить привязку Telegram ID к имени сотрудника'''
+def parse_shift_request(text: str, user: dict) -> bool:
+    '''Парсинг запроса на добавление смены'''
+    text_lower = text.lower()
+    
+    keywords = ['постав', 'добав', 'запиш', 'смен', 'работа', 'график']
+    if not any(kw in text_lower for kw in keywords):
+        return False
+    
+    date_obj = None
+    if 'сегодня' in text_lower:
+        date_obj = datetime.now()
+    elif 'завтра' in text_lower:
+        date_obj = datetime.now() + timedelta(days=1)
+    elif 'послезавтра' in text_lower:
+        date_obj = datetime.now() + timedelta(days=2)
+    else:
+        date_match = re.search(r'(\d{1,2})[\./](\d{1,2})', text)
+        if date_match:
+            day, month = int(date_match.group(1)), int(date_match.group(2))
+            year = datetime.now().year
+            try:
+                date_obj = datetime(year, month, day)
+            except:
+                pass
+    
+    if not date_obj:
+        return False
+    
+    time_patterns = [
+        r'(\d{1,2}):(\d{2})\s*[-–—]\s*(\d{1,2}):(\d{2})',
+        r'(\d{1,2})\s*[-–—до]\s*(\d{1,2})',
+        r'с\s*(\d{1,2})\s*до\s*(\d{1,2})'
+    ]
+    
+    start_time = None
+    end_time = None
+    
+    for pattern in time_patterns:
+        match = re.search(pattern, text)
+        if match:
+            groups = match.groups()
+            if len(groups) == 4:
+                start_time = f"{groups[0].zfill(2)}:{groups[1]}"
+                end_time = f"{groups[2].zfill(2)}:{groups[3]}"
+            elif len(groups) == 2:
+                start_time = f"{groups[0].zfill(2)}:00"
+                end_time = f"{groups[1].zfill(2)}:00"
+            break
+    
+    if not start_time or not end_time:
+        return False
+    
+    employee_name = get_employee_name(user)
+    success = save_shift_to_db(employee_name, date_obj.strftime('%Y-%m-%d'), start_time, end_time)
+    
+    if success:
+        weekday = ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье'][date_obj.weekday()]
+        hours = calculate_hours(start_time, end_time)
+        salary = hours * 250
+        
+        send_message(user['id'], 
+            f"✅ Смена добавлена!\n\n"
+            f"📅 {date_obj.strftime('%d.%m.%Y')} ({weekday})\n"
+            f"⏰ {start_time} - {end_time}\n"
+            f"⏱ Часов: {hours:.1f}\n"
+            f"💰 Заработок: {salary:,.0f} ₽")
+    else:
+        send_message(user['id'], "❌ Не удалось добавить смену, попробуй ещё раз")
+    
+    return True
+
+
+def save_shift_to_db(employee: str, date: str, start: str, end: str) -> bool:
+    '''Сохранить смену в базу данных'''
     conn = get_db_connection()
     if not conn:
-        return
+        return False
     
     try:
         cur = conn.cursor()
+        
         cur.execute(
-            f"INSERT INTO telegram_users (telegram_id, employee_name) "
-            f"VALUES ({telegram_id}, '{employee_name}') "
-            f"ON CONFLICT (telegram_id) DO UPDATE SET employee_name = '{employee_name}'"
+            f"SELECT * FROM schedule WHERE employee = '{employee}' AND date = '{date}'"
         )
+        existing = cur.fetchone()
+        
+        if existing:
+            cur.execute(
+                f"UPDATE schedule SET shift1_start = '{start}', shift1_end = '{end}' "
+                f"WHERE employee = '{employee}' AND date = '{date}'"
+            )
+        else:
+            cur.execute(
+                f"INSERT INTO schedule (date, employee, shift1_start, shift1_end, has_shift2, "
+                f"shift2_start, shift2_end, orders, bonus) "
+                f"VALUES ('{date}', '{employee}', '{start}', '{end}', false, '', '', 0, 0)"
+            )
+        
         conn.commit()
         cur.close()
         conn.close()
-        print(f"Saved mapping: {telegram_id} -> {employee_name}")
-    except Exception as e:
-        print(f"Error saving user name: {e}")
-
-
-def show_schedule(chat_id: int, message: dict):
-    '''Показать расписание на неделю'''
-    employee_name = get_employee_name(message['from'])
-    user_name = get_user_name(message['from'])
+        print(f"Saved shift: {employee} on {date} {start}-{end}")
+        return True
     
+    except Exception as e:
+        print(f"Error saving shift: {e}")
+        return False
+
+
+def show_schedule_smart(chat_id: int, user: dict):
+    '''Показать расписание умно'''
+    employee_name = get_employee_name(user)
     conn = get_db_connection()
+    
     if not conn:
-        send_message(chat_id, "❌ Ошибка подключения к базе данных")
+        send_message(chat_id, "❌ Не могу подключиться к базе данных")
         return
     
     try:
         cur = conn.cursor(cursor_factory=RealDictCursor)
-        
         today = datetime.now()
         week_start = today - timedelta(days=today.weekday())
         week_end = week_start + timedelta(days=6)
@@ -198,15 +258,15 @@ def show_schedule(chat_id: int, message: dict):
         )
         shifts = cur.fetchall()
         
-        if not shifts:
-            send_message(chat_id, f"📅 У тебя пока нет смен на этой неделе\n\nИспользуй /add_shift чтобы добавить")
+        if not shifts or not any(s['shift1_start'] for s in shifts):
+            send_message(chat_id, f"📅 {employee_name}, у тебя пока нет смен на этой неделе\n\nПросто напиши: «Поставь смену завтра с 10 до 18»")
             return
         
         text = f"📅 Расписание {employee_name}\n"
-        text += f"Неделя: {week_start.strftime('%d.%m')} - {week_end.strftime('%d.%m')}\n\n"
+        text += f"{week_start.strftime('%d.%m')} - {week_end.strftime('%d.%m')}\n\n"
         
         total_hours = 0
-        total_orders = 0
+        total_salary = 0
         
         for shift in shifts:
             if not shift['shift1_start']:
@@ -219,20 +279,17 @@ def show_schedule(chat_id: int, message: dict):
             if shift['has_shift2']:
                 hours += calculate_hours(shift['shift2_start'], shift['shift2_end'])
             
+            salary = calculate_day_salary(shift)
             total_hours += hours
-            total_orders += shift['orders'] or 0
+            total_salary += salary
             
             text += f"📌 {date.strftime('%d.%m')} ({weekday})\n"
             text += f"   ⏰ {shift['shift1_start']} - {shift['shift1_end']}"
             if shift['has_shift2']:
                 text += f" + {shift['shift2_start']}-{shift['shift2_end']}"
-            text += f"\n   📦 Заказов: {shift['orders'] or 0}\n"
-            text += f"   💰 {calculate_day_salary(shift):,.0f} ₽\n\n"
+            text += f"\n   💰 {salary:,.0f} ₽\n\n"
         
-        text += f"📊 Итого за неделю:\n"
-        text += f"⏱ Часов: {total_hours:.1f}\n"
-        text += f"📦 Заказов: {total_orders}\n"
-        
+        text += f"📊 Итого: {total_hours:.1f}ч • {total_salary:,.0f} ₽"
         send_message(chat_id, text)
         
         cur.close()
@@ -243,61 +300,17 @@ def show_schedule(chat_id: int, message: dict):
         send_message(chat_id, "❌ Ошибка при загрузке расписания")
 
 
-def show_add_shift_menu(chat_id: int, message: dict):
-    '''Показать меню добавления смены'''
-    today = datetime.now()
-    
-    keyboard = {
-        'inline_keyboard': []
-    }
-    
-    for i in range(7):
-        date = today + timedelta(days=i)
-        weekday = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'][date.weekday()]
-        button_text = f"{date.strftime('%d.%m')} ({weekday})"
-        
-        keyboard['inline_keyboard'].append([{
-            'text': button_text,
-            'callback_data': f"addshift_{date.strftime('%Y-%m-%d')}"
-        }])
-    
-    send_message(chat_id, "📅 Выбери день для добавления смены:", keyboard)
-
-
-def show_time_input(chat_id: int, message_id: int, date: str, user: dict):
-    '''Показать форму ввода времени'''
-    date_obj = datetime.strptime(date, '%Y-%m-%d')
-    weekday = ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье'][date_obj.weekday()]
-    
-    text = (
-        f"📅 Добавление смены на {date_obj.strftime('%d.%m.%Y')} ({weekday})\n\n"
-        f"Отправь время в формате:\n"
-        f"<b>10:00-18:00</b>\n\n"
-        f"Или с двумя сменами:\n"
-        f"<b>10:00-14:00 16:00-20:00</b>"
-    )
-    
-    edit_message(chat_id, message_id, text)
-
-
-def save_shift_from_callback(data: str, user: dict, chat_id: int, message_id: int):
-    '''Сохранить смену из callback данных'''
-    send_message(chat_id, "✅ Смена сохранена!")
-
-
-def show_salary(chat_id: int, message: dict):
-    '''Показать зарплату за месяц'''
-    employee_name = get_employee_name(message['from'])
-    user_name = get_user_name(message['from'])
-    
+def show_salary_smart(chat_id: int, user: dict):
+    '''Показать зарплату умно'''
+    employee_name = get_employee_name(user)
     conn = get_db_connection()
+    
     if not conn:
-        send_message(chat_id, "❌ Ошибка подключения к базе данных")
+        send_message(chat_id, "❌ Не могу подключиться к базе")
         return
     
     try:
         cur = conn.cursor(cursor_factory=RealDictCursor)
-        
         today = datetime.now()
         month_start = today.replace(day=1).strftime('%Y-%m-%d')
         
@@ -308,18 +321,20 @@ def show_salary(chat_id: int, message: dict):
         )
         shifts = cur.fetchall()
         
-        if not shifts:
-            send_message(chat_id, f"💰 В этом месяце у тебя пока нет смен")
+        if not shifts or not any(s['shift1_start'] for s in shifts):
+            send_message(chat_id, f"💰 {employee_name}, в этом месяце у тебя пока нет смен")
             return
         
         total_salary = 0
         total_hours = 0
         total_orders = 0
+        days_worked = 0
         
         for shift in shifts:
             if not shift['shift1_start']:
                 continue
             
+            days_worked += 1
             salary = calculate_day_salary(shift)
             total_salary += salary
             
@@ -329,15 +344,16 @@ def show_salary(chat_id: int, message: dict):
             total_hours += hours
             total_orders += shift['orders'] or 0
         
-        month_name = today.strftime('%B %Y')
+        month_name = today.strftime('%B')
         
         text = f"💰 Зарплата за {month_name}\n\n"
         text += f"👤 {employee_name}\n\n"
-        text += f"⏱ Отработано часов: {total_hours:.1f}\n"
-        text += f"📦 Доставлено заказов: {total_orders}\n\n"
+        text += f"📅 Отработано дней: {days_worked}\n"
+        text += f"⏱ Часов: {total_hours:.1f}\n"
+        text += f"📦 Заказов: {total_orders}\n\n"
         text += f"💵 Итого: {total_salary:,.0f} ₽\n\n"
         text += f"📊 Расчёт:\n"
-        text += f"• Почасовая оплата: {total_hours * 250:,.0f} ₽\n"
+        text += f"• Почасовая: {total_hours * 250:,.0f} ₽\n"
         text += f"• За заказы: {total_orders * 50:,.0f} ₽"
         
         send_message(chat_id, text)
@@ -350,25 +366,22 @@ def show_salary(chat_id: int, message: dict):
         send_message(chat_id, "❌ Ошибка при расчёте зарплаты")
 
 
-def respond_with_ai(chat_id: int, text: str, message: dict):
+def respond_with_ai(chat_id: int, text: str, user: dict):
     '''Ответить с помощью YandexGPT'''
-    user_name = get_user_name(message['from'])
+    user_name = get_user_name(user)
+    employee_name = get_employee_name(user)
     
-    if check_and_handle_schedule_request(text, chat_id, message):
-        return
-    
-    system_prompt = f"""Ты - дружелюбный помощник для курьеров службы доставки.
-    
+    system_prompt = f"""Ты — личный помощник и друг для курьеров службы доставки. Твоё имя — Юра.
+
 Твои задачи:
-1. Отвечать на вопросы о работе курьера (правила доставки, оформление документов, взаимодействие с клиентами)
-2. Давать полезные советы по работе
+1. Отвечать на вопросы о работе курьера (правила доставки, документы, клиенты, возвраты)
+2. Давать полезные советы и поддержку
 3. Быть приятным собеседником на любые темы
-4. Поддерживать неформальный стиль общения
-5. Помогать с расписанием - если спрашивают про смены, говори использовать команды /schedule /add_shift /salary
+4. Поддерживать дружеский неформальный стиль
 
-Пользователь: {user_name}
+Пользователь: {employee_name} (в Telegram: {user_name})
 
-Отвечай кратко (2-4 предложения), дружелюбно и по делу."""
+Отвечай кратко (2-4 предложения), дружелюбно, по-простому. Используй смайлики где уместно."""
 
     try:
         api_key = os.environ.get('YANDEX_API_KEY')
@@ -378,7 +391,7 @@ def respond_with_ai(chat_id: int, text: str, message: dict):
         
         if not api_key or not folder_id:
             print(f"Missing credentials: api_key={bool(api_key)}, folder_id={bool(folder_id)}")
-            send_message(chat_id, "Извини, у меня проблемы с подключением к ИИ 😔")
+            send_message(chat_id, "Извини, у меня проблемы с подключением 😔")
             return
         
         response = requests.post(
@@ -417,25 +430,52 @@ def respond_with_ai(chat_id: int, text: str, message: dict):
         send_message(chat_id, "Ой, что-то пошло не так 😅 Попробуй переформулировать вопрос")
 
 
-def check_and_handle_schedule_request(text: str, chat_id: int, message: dict) -> bool:
-    '''Проверка и обработка запросов на управление расписанием через естественный язык'''
-    text_lower = text.lower()
+def show_name_menu(chat_id: int, user: dict):
+    '''Показать меню выбора имени'''
+    keyboard = {
+        'inline_keyboard': [
+            [{'text': '👤 Никита', 'callback_data': 'setname_Никита'}],
+            [{'text': '👤 Андрей', 'callback_data': 'setname_Андрей'}],
+            [{'text': '👤 Денис', 'callback_data': 'setname_Денис'}]
+        ]
+    }
+    send_message(chat_id, "Выбери своё имя в системе:", keyboard)
+
+
+def handle_callback(callback: dict):
+    '''Обработка нажатий на кнопки'''
+    chat_id = callback['message']['chat']['id']
+    message_id = callback['message']['message_id']
+    data = callback['data']
+    user = callback['from']
     
-    keywords_schedule = ['смен', 'график', 'расписан', 'работ', 'завтра', 'сегодня', 'послезавтра']
-    keywords_time = ['с ', 'до ', 'время', 'час']
+    if data.startswith('setname_'):
+        employee_name = data.replace('setname_', '')
+        save_user_name(user['id'], employee_name)
+        edit_message(chat_id, message_id, f"✅ Отлично! Теперь ты — {employee_name}")
     
-    has_schedule = any(kw in text_lower for kw in keywords_schedule)
-    has_time = any(kw in text_lower for kw in keywords_time)
+    answer_callback(callback['id'])
+
+
+def save_user_name(telegram_id: int, employee_name: str):
+    '''Сохранить привязку Telegram ID к имени сотрудника'''
+    conn = get_db_connection()
+    if not conn:
+        return
     
-    if has_schedule or (has_time and any(kw in text_lower for kw in ['постав', 'добав', 'запиш', 'измен'])):
-        send_message(chat_id, 
-            "Понял! Для управления расписанием используй:\n\n"
-            "/add_shift - Добавить смену\n"
-            "/schedule - Посмотреть расписание\n\n"
-            "Скоро научусь понимать прямые команды вроде 'поставь смену завтра с 10 до 18' 😉")
-        return True
-    
-    return False
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            f"INSERT INTO telegram_users (telegram_id, employee_name) "
+            f"VALUES ({telegram_id}, '{employee_name}') "
+            f"ON CONFLICT (telegram_id) DO UPDATE SET employee_name = '{employee_name}'"
+        )
+        conn.commit()
+        cur.close()
+        conn.close()
+        print(f"Saved mapping: {telegram_id} -> {employee_name}")
+    except Exception as e:
+        print(f"Error saving user name: {e}")
 
 
 def calculate_hours(start: str, end: str) -> float:
