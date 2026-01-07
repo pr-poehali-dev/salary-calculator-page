@@ -1045,15 +1045,21 @@ def show_personal_advice(chat_id: int, text_lower: str):
         cur = conn.cursor(cursor_factory=RealDictCursor)
         today = datetime.now()
         month_start = today.replace(day=1).strftime('%Y-%m-%d')
+        today_str = today.strftime('%Y-%m-%d')
         
         cur.execute(
             f"SELECT * FROM schedule WHERE employee = '{target_employee}' "
-            f"AND date >= '{month_start}' AND date < '{today.strftime('%Y-%m-%d')}' "
+            f"AND date >= '{month_start}' "
             f"ORDER BY date"
         )
         shifts = cur.fetchall()
         
-        work_shifts = [s for s in shifts if s['shift1_start'] and str(s['shift1_start']) != '00:00:00']
+        work_shifts = [
+            s for s in shifts 
+            if s['shift1_start'] 
+            and str(s['shift1_start']) != '00:00:00'
+            and str(s['date']) <= today_str
+        ]
         
         if not work_shifts:
             emoji = {'Никита': '👨‍💼', 'Андрей': '🧑‍💻', 'Денис': '👨‍🔧'}.get(target_employee, '👤')
