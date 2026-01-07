@@ -23,6 +23,7 @@ def handler(event: dict, context) -> dict:
     
     try:
         body = json.loads(event.get('body', '{}'))
+        print(f"Received update: {json.dumps(body, ensure_ascii=False)[:500]}")
         
         if not body:
             return {'statusCode': 200, 'body': json.dumps({'ok': True})}
@@ -39,7 +40,9 @@ def handler(event: dict, context) -> dict:
         }
     
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"ERROR in handler: {e}")
+        import traceback
+        print(traceback.format_exc())
         return {
             'statusCode': 200,
             'body': json.dumps({'ok': True})
@@ -50,6 +53,9 @@ def handle_message(message: dict):
     '''Обработка входящих сообщений'''
     chat_id = message['chat']['id']
     text = message.get('text', '')
+    user_name = get_user_name(message['from'])
+    
+    print(f"Message from {user_name} (ID: {chat_id}): {text}")
     
     bot_username = get_bot_username()
     
@@ -78,12 +84,13 @@ def handle_message(message: dict):
             "/schedule - Показать расписание на неделю\n"
             "/add_shift - Добавить новую смену\n"
             "/salary - Посмотреть зарплату за месяц\n\n"
-            "💬 Общение:\n"
-            "Просто напиши вопрос и я отвечу! В группе упомяни меня (@имя_бота)\n\n"
-            "Примеры вопросов:\n"
-            "• Как правильно оформить возврат?\n"
-            "• Что делать если клиента нет дома?\n"
-            "• Расскажи анекдот")
+            "💬 Умное общение:\n"
+            "Просто напиши что нужно сделать, например:\n"
+            "• Поставь мне смену завтра с 10 до 18\n"
+            "• Покажи мою зарплату\n"
+            "• Как оформить возврат?\n"
+            "• Расскажи анекдот\n\n"
+            "В группе упомяни меня @" + (get_bot_username() or 'бот'))
         return
     
     if text.startswith('/schedule'):
@@ -298,6 +305,9 @@ def respond_with_ai(chat_id: int, text: str, message: dict):
     '''Ответить с помощью YandexGPT'''
     user_name = get_user_name(message['from'])
     
+    if check_and_handle_schedule_request(text, chat_id, message):
+        return
+    
     system_prompt = f"""Ты - дружелюбный помощник для курьеров службы доставки.
     
 Твои задачи:
@@ -305,6 +315,7 @@ def respond_with_ai(chat_id: int, text: str, message: dict):
 2. Давать полезные советы по работе
 3. Быть приятным собеседником на любые темы
 4. Поддерживать неформальный стиль общения
+5. Помогать с расписанием - если спрашивают про смены, говори использовать команды /schedule /add_shift /salary
 
 Пользователь: {user_name}
 
@@ -314,7 +325,10 @@ def respond_with_ai(chat_id: int, text: str, message: dict):
         api_key = os.environ.get('YANDEX_API_KEY')
         folder_id = os.environ.get('YANDEX_FOLDER_ID')
         
+        print(f"AI request from {user_name}: {text[:100]}")
+        
         if not api_key or not folder_id:
+            print(f"Missing credentials: api_key={bool(api_key)}, folder_id={bool(folder_id)}")
             send_message(chat_id, "Извини, у меня проблемы с подключением к ИИ 😔")
             return
         
@@ -341,13 +355,38 @@ def respond_with_ai(chat_id: int, text: str, message: dict):
         if response.status_code == 200:
             result = response.json()
             ai_text = result['result']['alternatives'][0]['message']['text']
+            print(f"AI response: {ai_text[:100]}")
             send_message(chat_id, ai_text)
         else:
+            print(f"YandexGPT error: {response.status_code} - {response.text}")
             send_message(chat_id, "Хм, не могу сейчас ответить, попробуй чуть позже! 🤔")
     
     except Exception as e:
-        print(f"Error in AI response: {e}")
+        print(f"ERROR in AI response: {e}")
+        import traceback
+        print(traceback.format_exc())
         send_message(chat_id, "Ой, что-то пошло не так 😅 Попробуй переформулировать вопрос")
+
+
+def check_and_handle_schedule_request(text: str, chat_id: int, message: dict) -> bool:
+    '''Проверка и обработка запросов на управление расписанием через естественный язык'''
+    text_lower = text.lower()
+    
+    keywords_schedule = ['смен', 'график', 'расписан', 'работ', 'завтра', 'сегодня', 'послезавтра']
+    keywords_time = ['с ', 'до ', 'время', 'час']
+    
+    has_schedule = any(kw in text_lower for kw in keywords_schedule)
+    has_time = any(kw in text_lower for kw in keywords_time)
+    
+    if has_schedule or (has_time and any(kw in text_lower for kw in ['постав', 'добав', 'запиш', 'измен'])):
+        send_message(chat_id, 
+            "Понял! Для управления расписанием используй:\n\n"
+            "/add_shift - Добавить смену\n"
+            "/schedule - Посмотреть расписание\n\n"
+            "Скоро научусь понимать прямые команды вроде 'поставь смену завтра с 10 до 18' 😉")
+        return True
+    
+    return False
 
 
 def calculate_hours(start: str, end: str) -> float:
