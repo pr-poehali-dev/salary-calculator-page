@@ -875,12 +875,15 @@ def calculate_hours(start: str, end: str) -> float:
     if not start or not end:
         return 0
     try:
-        start_h, start_m = map(int, start.split(':'))
-        end_h, end_m = map(int, end.split(':'))
+        start_parts = start.split(':')
+        end_parts = end.split(':')
+        start_h, start_m = int(start_parts[0]), int(start_parts[1])
+        end_h, end_m = int(end_parts[0]), int(end_parts[1])
         start_minutes = start_h * 60 + start_m
         end_minutes = end_h * 60 + end_m
         return (end_minutes - start_minutes) / 60
-    except:
+    except Exception as e:
+        print(f"Error calculating hours: start={start}, end={end}, error={e}")
         return 0
 
 
