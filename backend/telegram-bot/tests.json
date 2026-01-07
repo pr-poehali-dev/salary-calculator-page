@@ -24,6 +24,16 @@
         "ok": true
       },
       "bodyMatcher": "partial"
+    },
+    {
+      "name": "Test daily summary endpoint",
+      "method": "GET",
+      "path": "/?action=daily",
+      "expectedStatus": 200,
+      "expectedBody": {
+        "ok": true
+      },
+      "bodyMatcher": "partial"
     }
   ]
 }

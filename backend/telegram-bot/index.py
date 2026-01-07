@@ -10,17 +10,34 @@ def handler(event: dict, context) -> dict:
     '''Умный Telegram ассистент для курьеров с ИИ и управлением расписанием'''
     
     method = event.get('httpMethod', 'POST')
+    query_params = event.get('queryStringParameters', {})
+    action = query_params.get('action', '') if query_params else ''
     
     if method == 'OPTIONS':
         return {
             'statusCode': 200,
             'headers': {
                 'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': 'POST, OPTIONS',
+                'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
                 'Access-Control-Allow-Headers': 'Content-Type'
             },
             'body': ''
         }
+    
+    if method == 'GET' and action == 'daily':
+        try:
+            send_daily_summary()
+            return {
+                'statusCode': 200,
+                'headers': {'Content-Type': 'application/json'},
+                'body': json.dumps({'ok': True, 'message': 'Daily summary sent'})
+            }
+        except Exception as e:
+            print(f"ERROR in daily summary: {e}")
+            return {
+                'statusCode': 500,
+                'body': json.dumps({'ok': False, 'error': str(e)})
+            }
     
     try:
         body = json.loads(event.get('body', '{}'))
@@ -84,7 +101,7 @@ def handle_chat_member_update(update: dict):
 def show_group_welcome(chat_id: int):
     '''Показать приветствие при добавлении в группу'''
     text = (
-        "👋 <b>Всем привет! Меня зовут Юра</b>\n\n"
+        "👋 <b>Всем привет! Я — Хелпер</b>\n\n"
         "Я — ваш умный помощник по расписанию и зарплатам. "
         "Буду помогать управлять сменами, считать заработки и отвечать на вопросы! 😊\n\n"
         "<b>🚀 Быстрый старт:</b>\n\n"
@@ -93,6 +110,7 @@ def show_group_welcome(chat_id: int):
         "• <i>@couriers_helper_bot кто сегодня работает?</i>\n"
         "• <i>@couriers_helper_bot статистика</i>\n"
         "• <i>@couriers_helper_bot зарплаты</i>\n\n"
+        "📆 <b>Каждое утро в 9:00</b> я буду присылать сводку кто работает сегодня!\n\n"
         "━━━━━━━━━━━━━━━\n"
         "💡 Нажмите кнопку ниже чтобы увидеть все мои возможности 👇"
     )
@@ -130,7 +148,7 @@ def handle_message(message: dict):
             show_group_info(chat_id)
         else:
             send_message(chat_id, 
-                "👋 Привет! Я — Юра, твой помощник.\n\n"
+                "👋 Привет! Я — Хелпер, твой помощник.\n\n"
                 "Напиши мне что-нибудь, например:\n"
                 "• «Поставь смену завтра с 10 до 18»\n"
                 "• «Покажи моё расписание»\n"
@@ -462,7 +480,7 @@ def respond_with_ai(chat_id: int, text: str, user: dict):
     user_name = get_user_name(user)
     employee_name = get_employee_name(user)
     
-    system_prompt = f"""Ты — Юра, личный помощник курьеров доставки. Дружелюбный, полезный, прикольный.
+    system_prompt = f"""Ты — Хелпер, личный помощник курьеров доставки. Дружелюбный, полезный, прикольный.
 
 Твои возможности (ВАЖНО — упоминай их в ответах):
 • Управление расписанием: "поставь смену завтра с 10 до 18"
@@ -879,7 +897,7 @@ def get_employee_badge(days: int, hours: float, salary: float) -> str:
 def show_group_info(chat_id: int):
     '''Показать инструкцию для группы'''
     text = (
-        "👋 <b>Привет! Я — Юра, ваш умный помощник</b>\n\n"
+        "👋 <b>Привет! Я — Хелпер, ваш умный помощник</b>\n\n"
         "Работаю в группе — упомяните меня @couriers_helper_bot\n\n"
         "<b>📅 Расписание команды:</b>\n"
         "• <i>кто сегодня работает?</i>\n"
@@ -893,6 +911,7 @@ def show_group_info(chat_id: int):
         "• <i>добавь послезавтра 9-17</i>\n\n"
         "<b>💬 Общение:</b>\n"
         "Задавайте любые вопросы — я помогу! 😊\n\n"
+        "📆 <b>Каждое утро в 9:00</b> я присылаю сводку дня\n\n"
         "━━━━━━━━━━━━━━━\n"
         "💡 <b>Команды:</b> /info — показать эту справку"
     )
@@ -966,3 +985,68 @@ def answer_callback(callback_id: str, text: str = None):
         f'https://api.telegram.org/bot{token}/answerCallbackQuery',
         json=data
     )
+
+
+def send_daily_summary():
+    '''Отправить ежедневную сводку в группу'''
+    chat_id = os.environ.get('TELEGRAM_GROUP_CHAT_ID')
+    if not chat_id:
+        print("ERROR: TELEGRAM_GROUP_CHAT_ID not set")
+        return
+    
+    try:
+        chat_id = int(chat_id)
+    except:
+        print(f"ERROR: Invalid TELEGRAM_GROUP_CHAT_ID: {chat_id}")
+        return
+    
+    conn = get_db_connection()
+    if not conn:
+        send_message(chat_id, "❌ Не могу подключиться к базе для утренней сводки")
+        return
+    
+    try:
+        today = datetime.now()
+        date_str = today.strftime('%Y-%m-%d')
+        weekday = ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье'][today.weekday()]
+        
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute(f"SELECT * FROM schedule WHERE date = '{date_str}' ORDER BY employee")
+        shifts = cur.fetchall()
+        
+        working = [s for s in shifts if s['shift1_start']]
+        
+        text = f"☀️ <b>Доброе утро!</b>\n\n"
+        text += f"📅 <b>{today.strftime('%d.%m.%Y')} — {weekday}</b>\n\n"
+        
+        if not working:
+            text += "🎉 <b>Сегодня выходной — никто не работает!</b>\n\n"
+            text += "Отдыхайте и набирайтесь сил! 💪"
+        else:
+            text += "<b>👥 Кто выходит на смену:</b>\n\n"
+            
+            for shift in working:
+                emoji = {'Никита': '👨‍💼', 'Андрей': '🧑‍💻', 'Денис': '👨‍🔧'}.get(shift['employee'], '👤')
+                text += f"{emoji} <b>{shift['employee']}</b>\n"
+                text += f"   ⏰ {shift['shift1_start']} - {shift['shift1_end']}"
+                
+                if shift['has_shift2']:
+                    text += f" + {shift['shift2_start']}-{shift['shift2_end']}"
+                
+                hours = calculate_hours(shift['shift1_start'], shift['shift1_end'])
+                if shift['has_shift2']:
+                    hours += calculate_hours(shift['shift2_start'], shift['shift2_end'])
+                text += f" ({hours:.1f}ч)\n\n"
+            
+            text += "━━━━━━━━━━━━━━━\n"
+            text += "💪 <b>Удачной смены, команда!</b>"
+        
+        send_message(chat_id, text)
+        cur.close()
+        conn.close()
+        print(f"Daily summary sent successfully to chat {chat_id}")
+    
+    except Exception as e:
+        print(f"Error sending daily summary: {e}")
+        import traceback
+        print(traceback.format_exc())
