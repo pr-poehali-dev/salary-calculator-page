@@ -119,17 +119,28 @@ def handle_message(message: dict):
 def handle_smart_message(chat_id: int, text: str, user: dict, message: dict):
     '''Умная обработка сообщений через ИИ'''
     text_lower = text.lower()
+    is_group = message['chat']['type'] in ['group', 'supergroup']
     
     shift_result = parse_shift_request(text, user)
     if shift_result:
         return
     
-    if any(word in text_lower for word in ['расписание', 'график', 'смены', 'когда работ', 'мои смены']):
-        show_schedule_smart(chat_id, user)
+    if any(word in text_lower for word in ['расписание', 'график', 'смены', 'когда работ', 'мои смены', 'кто работает', 'кто сегодня', 'кто завтра']):
+        if is_group:
+            show_team_schedule(chat_id, text_lower)
+        else:
+            show_schedule_smart(chat_id, user)
+        return
+    
+    if any(word in text_lower for word in ['статистика', 'рейтинг', 'лидер', 'кто больше', 'сравнение']):
+        show_team_stats(chat_id)
         return
     
     if any(word in text_lower for word in ['зарплата', 'заработ', 'сколько', 'деньги', 'выплата']):
-        show_salary_smart(chat_id, user)
+        if is_group:
+            show_team_salary(chat_id)
+        else:
+            show_salary_smart(chat_id, user)
         return
     
     respond_with_ai(chat_id, text, user)
@@ -276,11 +287,13 @@ def show_schedule_smart(chat_id: int, user: dict):
         
         total_hours = 0
         total_salary = 0
+        days_worked = 0
         
         for shift in shifts:
             if not shift['shift1_start']:
                 continue
             
+            days_worked += 1
             date = datetime.strptime(str(shift['date']), '%Y-%m-%d')
             weekday = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'][date.weekday()]
             
@@ -298,7 +311,11 @@ def show_schedule_smart(chat_id: int, user: dict):
                 text += f" + {shift['shift2_start']}-{shift['shift2_end']}"
             text += f"\n   💰 {salary:,.0f} ₽\n\n"
         
-        text += f"📊 Итого: {total_hours:.1f}ч • {total_salary:,.0f} ₽"
+        text += f"📊 Итого: {total_hours:.1f}ч • {total_salary:,.0f} ₽\n\n"
+        
+        badge = get_employee_badge(days_worked, total_hours, total_salary)
+        text += f"🏆 Статус: {badge}"
+        
         send_message(chat_id, text)
         
         cur.close()
@@ -578,6 +595,182 @@ def get_bot_username() -> str:
     except:
         pass
     return ''
+
+
+def show_team_schedule(chat_id: int, text_lower: str):
+    '''Показать расписание команды на сегодня/завтра'''
+    conn = get_db_connection()
+    if not conn:
+        send_message(chat_id, "❌ Не могу подключиться к базе")
+        return
+    
+    try:
+        target_date = datetime.now()
+        if 'завтра' in text_lower:
+            target_date += timedelta(days=1)
+        
+        date_str = target_date.strftime('%Y-%m-%d')
+        weekday = ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье'][target_date.weekday()]
+        
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute(f"SELECT * FROM schedule WHERE date = '{date_str}' ORDER BY employee")
+        shifts = cur.fetchall()
+        
+        working = [s for s in shifts if s['shift1_start']]
+        
+        if not working:
+            send_message(chat_id, f"📅 {target_date.strftime('%d.%m.%Y')} ({weekday})\n\nНикто не работает — выходной! 🎉")
+            return
+        
+        text = f"📅 Расписание на {target_date.strftime('%d.%m.%Y')}\n{weekday}\n\n"
+        
+        for shift in working:
+            emoji = {'Никита': '👨‍💼', 'Андрей': '🧑‍💻', 'Денис': '👨‍🔧'}.get(shift['employee'], '👤')
+            text += f"{emoji} <b>{shift['employee']}</b>\n"
+            text += f"   ⏰ {shift['shift1_start']} - {shift['shift1_end']}"
+            if shift['has_shift2']:
+                text += f" + {shift['shift2_start']}-{shift['shift2_end']}"
+            
+            hours = calculate_hours(shift['shift1_start'], shift['shift1_end'])
+            if shift['has_shift2']:
+                hours += calculate_hours(shift['shift2_start'], shift['shift2_end'])
+            text += f" ({hours:.1f}ч)\n\n"
+        
+        send_message(chat_id, text)
+        cur.close()
+        conn.close()
+    
+    except Exception as e:
+        print(f"Error showing team schedule: {e}")
+        send_message(chat_id, "❌ Ошибка при загрузке расписания")
+
+
+def show_team_stats(chat_id: int):
+    '''Показать статистику и рейтинг команды'''
+    conn = get_db_connection()
+    if not conn:
+        send_message(chat_id, "❌ Не могу подключиться к базе")
+        return
+    
+    try:
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        today = datetime.now()
+        month_start = today.replace(day=1).strftime('%Y-%m-%d')
+        
+        cur.execute(f"SELECT * FROM schedule WHERE date >= '{month_start}' ORDER BY employee, date")
+        all_shifts = cur.fetchall()
+        
+        stats = {}
+        for emp in ['Никита', 'Андрей', 'Денис']:
+            emp_shifts = [s for s in all_shifts if s['employee'] == emp and s['shift1_start']]
+            
+            total_hours = sum(
+                calculate_hours(s['shift1_start'], s['shift1_end']) +
+                (calculate_hours(s['shift2_start'], s['shift2_end']) if s['has_shift2'] else 0)
+                for s in emp_shifts
+            )
+            total_salary = sum(calculate_day_salary(s) for s in emp_shifts)
+            
+            stats[emp] = {
+                'days': len(emp_shifts),
+                'hours': total_hours,
+                'salary': total_salary
+            }
+        
+        sorted_by_salary = sorted(stats.items(), key=lambda x: x[1]['salary'], reverse=True)
+        
+        text = f"📊 <b>Статистика команды за {today.strftime('%B %Y')}</b>\n\n"
+        
+        medals = ['🥇', '🥈', '🥉']
+        for i, (emp, data) in enumerate(sorted_by_salary):
+            emoji = {'Никита': '👨‍💼', 'Андрей': '🧑‍💻', 'Денис': '👨‍🔧'}.get(emp, '👤')
+            medal = medals[i] if i < 3 else '  '
+            
+            text += f"{medal} {emoji} <b>{emp}</b>\n"
+            text += f"   💰 {data['salary']:,.0f} ₽\n"
+            text += f"   ⏱ {data['hours']:.1f} часов • {data['days']} дней\n"
+            
+            badge = get_employee_badge(data['days'], data['hours'], data['salary'])
+            text += f"   🏆 {badge}\n\n"
+        
+        leader = sorted_by_salary[0]
+        if leader[1]['salary'] > 0:
+            text += f"🔥 <b>Лидер месяца: {leader[0]}</b>\n"
+            text += f"Так держать! 💪"
+        
+        send_message(chat_id, text)
+        cur.close()
+        conn.close()
+    
+    except Exception as e:
+        print(f"Error showing team stats: {e}")
+        send_message(chat_id, "❌ Ошибка при загрузке статистики")
+
+
+def show_team_salary(chat_id: int):
+    '''Показать зарплаты всей команды'''
+    conn = get_db_connection()
+    if not conn:
+        send_message(chat_id, "❌ Не могу подключиться к базе")
+        return
+    
+    try:
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        today = datetime.now()
+        month_start = today.replace(day=1).strftime('%Y-%m-%d')
+        
+        cur.execute(f"SELECT * FROM schedule WHERE date >= '{month_start}' ORDER BY employee")
+        all_shifts = cur.fetchall()
+        
+        text = f"💰 <b>Зарплаты за {today.strftime('%B %Y')}</b>\n\n"
+        
+        total_all = 0
+        for emp in ['Никита', 'Андрей', 'Денис']:
+            emp_shifts = [s for s in all_shifts if s['employee'] == emp and s['shift1_start']]
+            
+            total_salary = sum(calculate_day_salary(s) for s in emp_shifts)
+            total_hours = sum(
+                calculate_hours(s['shift1_start'], s['shift1_end']) +
+                (calculate_hours(s['shift2_start'], s['shift2_end']) if s['has_shift2'] else 0)
+                for s in emp_shifts
+            )
+            total_orders = sum(s['orders'] or 0 for s in emp_shifts)
+            
+            emoji = {'Никита': '👨‍💼', 'Андрей': '🧑‍💻', 'Денис': '👨‍🔧'}.get(emp, '👤')
+            
+            text += f"{emoji} <b>{emp}</b>\n"
+            text += f"   💵 {total_salary:,.0f} ₽\n"
+            text += f"   ⏱ {total_hours:.1f}ч • 📦 {total_orders} зак.\n\n"
+            
+            total_all += total_salary
+        
+        text += f"━━━━━━━━━━━━━━━\n"
+        text += f"<b>Общий фонд: {total_all:,.0f} ₽</b>"
+        
+        send_message(chat_id, text)
+        cur.close()
+        conn.close()
+    
+    except Exception as e:
+        print(f"Error showing team salary: {e}")
+        send_message(chat_id, "❌ Ошибка при загрузке зарплат")
+
+
+def get_employee_badge(days: int, hours: float, salary: float) -> str:
+    '''Получить бейдж сотрудника по статистике'''
+    if days == 0:
+        return "Новичок 🐣"
+    
+    if salary >= 50000:
+        return "Стахановец 💎"
+    elif salary >= 30000:
+        return "Трудяга 🔥"
+    elif salary >= 15000:
+        return "Работяга 💪"
+    elif salary >= 5000:
+        return "Начинающий ⭐"
+    else:
+        return "Стартовал 🚀"
 
 
 def send_message(chat_id: int, text: str, keyboard=None):
