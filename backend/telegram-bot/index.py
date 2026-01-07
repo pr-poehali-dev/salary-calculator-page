@@ -30,9 +30,15 @@ def handler(event: dict, context) -> dict:
             return {'statusCode': 200, 'body': json.dumps({'ok': True})}
         
         if 'message' in body:
-            handle_message(body['message'])
+            message = body['message']
+            if 'new_chat_members' in message:
+                handle_new_member(message)
+            else:
+                handle_message(message)
         elif 'callback_query' in body:
             handle_callback(body['callback_query'])
+        elif 'my_chat_member' in body:
+            handle_chat_member_update(body['my_chat_member'])
         
         return {
             'statusCode': 200,
@@ -48,6 +54,56 @@ def handler(event: dict, context) -> dict:
             'statusCode': 200,
             'body': json.dumps({'ok': True})
         }
+
+
+def handle_new_member(message: dict):
+    '''Обработка добавления бота в группу'''
+    chat_id = message['chat']['id']
+    new_members = message.get('new_chat_members', [])
+    
+    bot_token = os.environ.get('TELEGRAM_BOT_TOKEN', '')
+    if not bot_token:
+        return
+    
+    for member in new_members:
+        if member.get('is_bot') and member.get('username') == 'couriers_helper_bot':
+            show_group_welcome(chat_id)
+            break
+
+
+def handle_chat_member_update(update: dict):
+    '''Обработка изменения статуса бота в чате'''
+    new_status = update.get('new_chat_member', {}).get('status')
+    old_status = update.get('old_chat_member', {}).get('status')
+    chat_id = update['chat']['id']
+    
+    if old_status in ['left', 'kicked'] and new_status == 'member':
+        show_group_welcome(chat_id)
+
+
+def show_group_welcome(chat_id: int):
+    '''Показать приветствие при добавлении в группу'''
+    text = (
+        "👋 <b>Всем привет! Меня зовут Юра</b>\n\n"
+        "Я — ваш умный помощник по расписанию и зарплатам. "
+        "Буду помогать управлять сменами, считать заработки и отвечать на вопросы! 😊\n\n"
+        "<b>🚀 Быстрый старт:</b>\n\n"
+        "Чтобы обратиться ко мне в группе, упомяните меня @couriers_helper_bot\n\n"
+        "Например:\n"
+        "• <i>@couriers_helper_bot кто сегодня работает?</i>\n"
+        "• <i>@couriers_helper_bot статистика</i>\n"
+        "• <i>@couriers_helper_bot зарплаты</i>\n\n"
+        "━━━━━━━━━━━━━━━\n"
+        "💡 Нажмите кнопку ниже чтобы увидеть все мои возможности 👇"
+    )
+    
+    keyboard = {
+        'inline_keyboard': [
+            [{'text': '📖 Показать все функции', 'callback_data': 'cmd_fullinfo'}]
+        ]
+    }
+    
+    send_message(chat_id, text, keyboard)
 
 
 def handle_message(message: dict):
@@ -523,7 +579,12 @@ def handle_callback(callback: dict):
             "<b>Q: Что делать если клиент не отвечает?</b>\n"
             "A: Просто спроси меня — я подскажу! 😊")
     
-    answer_callback(callback['id'])
+    elif data == 'cmd_fullinfo':
+        answer_callback(callback['id'])
+        show_group_info(chat_id)
+    
+    else:
+        answer_callback(callback['id'])
 
 
 def save_user_name(telegram_id: int, employee_name: str):
