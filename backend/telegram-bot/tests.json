@@ -1,0 +1,29 @@
+{
+  "tests": [
+    {
+      "name": "Test webhook endpoint",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "message": {
+          "message_id": 1,
+          "from": {
+            "id": 123456,
+            "first_name": "Test",
+            "is_bot": false
+          },
+          "chat": {
+            "id": 123456,
+            "type": "private"
+          },
+          "text": "/start"
+        }
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "ok": true
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}
