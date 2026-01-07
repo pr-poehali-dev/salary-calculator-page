@@ -69,6 +69,15 @@ def handle_message(message: dict):
     
     text = text.replace(f'@{bot_username}', '').strip() if bot_username else text
     
+    if not text:
+        send_message(chat_id, 
+            "👋 Привет! Я — Юра, твой помощник.\n\n"
+            "Напиши мне что-нибудь, например:\n"
+            "• «Поставь смену завтра с 10 до 18»\n"
+            "• «Покажи моё расписание»\n"
+            "• «Как дела?»")
+        return
+    
     if text.startswith('/start'):
         employee_name = get_employee_name(user)
         send_message(chat_id, 
