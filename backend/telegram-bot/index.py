@@ -385,7 +385,7 @@ def respond_with_ai(chat_id: int, text: str, user: dict):
 
     try:
         api_key = os.environ.get('YANDEX_API_KEY')
-        folder_id = os.environ.get('YANDEX_FOLDER_ID', 'b1gtukkj95lucj7u4je6')
+        folder_id = 'b1gtukkj95lucj7u4je6'
         
         print(f"AI request from {user_name}: {text[:100]}")
         print(f"Using folder_id: {folder_id}")
