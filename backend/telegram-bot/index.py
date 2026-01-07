@@ -204,6 +204,10 @@ def handle_smart_message(chat_id: int, text: str, user: dict, message: dict):
     text_lower = text.lower()
     is_group = message['chat']['type'] in ['group', 'supergroup']
     
+    complex_result = parse_complex_command(text, user, chat_id)
+    if complex_result:
+        return
+    
     shift_result = parse_shift_request(text, user)
     if shift_result:
         return
@@ -227,6 +231,124 @@ def handle_smart_message(chat_id: int, text: str, user: dict, message: dict):
         return
     
     respond_with_ai(chat_id, text, user)
+
+
+def parse_complex_command(text: str, user: dict, chat_id: int) -> bool:
+    '''Парсинг сложных команд с несколькими операциями'''
+    text_lower = text.lower()
+    
+    keywords = ['постав', 'добав', 'запиш', 'смен', 'заказ', 'надбавк', 'доплат', 'удал']
+    if not any(kw in text_lower for kw in keywords):
+        return False
+    
+    target_employee = None
+    if 'никит' in text_lower:
+        target_employee = 'Никита'
+    elif 'андр' in text_lower:
+        target_employee = 'Андрей'
+    elif 'денис' in text_lower:
+        target_employee = 'Денис'
+    
+    if not target_employee:
+        target_employee = get_employee_name(user)
+    
+    date_obj = None
+    if 'сегодня' in text_lower:
+        date_obj = datetime.now()
+    elif 'завтра' in text_lower:
+        date_obj = datetime.now() + timedelta(days=1)
+    elif 'послезавтра' in text_lower:
+        date_obj = datetime.now() + timedelta(days=2)
+    else:
+        date_match = re.search(r'(\d{1,2})[\./](\d{1,2})', text)
+        if date_match:
+            day, month = int(date_match.group(1)), int(date_match.group(2))
+            year = datetime.now().year
+            try:
+                date_obj = datetime(year, month, day)
+            except:
+                pass
+    
+    if not date_obj:
+        return False
+    
+    date_str = date_obj.strftime('%Y-%m-%d')
+    actions_performed = []
+    
+    time_patterns = [
+        r'(\d{1,2}):(\d{2})\s*[-–—]\s*(\d{1,2}):(\d{2})',
+        r'(\d{1,2})\s*[-–—до]\s*(\d{1,2})',
+        r'с\s*(\d{1,2})\s*до\s*(\d{1,2})'
+    ]
+    
+    shift_added = False
+    for pattern in time_patterns:
+        match = re.search(pattern, text)
+        if match:
+            groups = match.groups()
+            if len(groups) == 4:
+                start_time = f"{groups[0].zfill(2)}:{groups[1]}"
+                end_time = f"{groups[2].zfill(2)}:{groups[3]}"
+            elif len(groups) == 2:
+                start_time = f"{groups[0].zfill(2)}:00"
+                end_time = f"{groups[1].zfill(2)}:00"
+            else:
+                continue
+            
+            if save_shift_to_db(target_employee, date_str, start_time, end_time):
+                hours = calculate_hours(start_time, end_time)
+                actions_performed.append(f"⏰ Смена: {start_time}-{end_time} ({hours:.1f}ч)")
+                shift_added = True
+            break
+    
+    orders_match = re.search(r'(\d+)\s*заказ', text_lower)
+    if orders_match:
+        orders = int(orders_match.group(1))
+        if update_orders_in_db(target_employee, date_str, orders):
+            actions_performed.append(f"📦 Заказов: {orders}")
+    
+    bonus_patterns = [
+        r'надбавк[уа]?\s+(?:за\s+заказ\s+)?(?:сдела[йть]+\s+)?(\d+)',
+        r'доплат[уа]?\s+(?:за\s+заказ\s+)?(?:сдела[йть]+\s+)?(\d+)',
+        r'бонус\s+(\d+)'
+    ]
+    for pattern in bonus_patterns:
+        bonus_match = re.search(pattern, text_lower)
+        if bonus_match:
+            bonus = int(bonus_match.group(1))
+            if update_bonus_in_db(date_str, bonus):
+                actions_performed.append(f"💰 Доплата за заказ: +{bonus}₽")
+            break
+    
+    if 'удал' in text_lower and 'смен' in text_lower:
+        if delete_shift_from_db(target_employee, date_str):
+            actions_performed.append(f"🗑 Смена удалена")
+    
+    if actions_performed:
+        weekday = ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье'][date_obj.weekday()]
+        
+        response = f"✅ <b>Выполнено для {target_employee}!</b>\n\n"
+        response += f"📅 {date_obj.strftime('%d.%m.%Y')} ({weekday})\n\n"
+        response += "\n".join(actions_performed)
+        
+        conn = get_db_connection()
+        if conn and shift_added:
+            try:
+                cur = conn.cursor()
+                cur.execute(f"SELECT * FROM schedule WHERE employee = '{target_employee}' AND date = '{date_str}'")
+                shift_data = cur.fetchone()
+                if shift_data:
+                    salary = calculate_day_salary_from_row(shift_data)
+                    response += f"\n\n💵 <b>Итого заработок: {salary:,.0f} ₽</b>"
+                cur.close()
+                conn.close()
+            except:
+                pass
+        
+        send_message(chat_id, response)
+        return True
+    
+    return False
 
 
 def parse_shift_request(text: str, user: dict) -> bool:
@@ -344,6 +466,108 @@ def save_shift_to_db(employee: str, date: str, start: str, end: str) -> bool:
     except Exception as e:
         print(f"Error saving shift: {e}")
         return False
+
+
+def update_orders_in_db(employee: str, date: str, orders: int) -> bool:
+    '''Обновить количество заказов'''
+    conn = get_db_connection()
+    if not conn:
+        return False
+    
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            f"SELECT * FROM schedule WHERE employee = '{employee}' AND date = '{date}'"
+        )
+        existing = cur.fetchone()
+        
+        if existing:
+            cur.execute(
+                f"UPDATE schedule SET orders = {orders} "
+                f"WHERE employee = '{employee}' AND date = '{date}'"
+            )
+        else:
+            cur.execute(
+                f"INSERT INTO schedule (date, employee, shift1_start, shift1_end, has_shift2, "
+                f"shift2_start, shift2_end, orders, bonus) "
+                f"VALUES ('{date}', '{employee}', '', '', false, '', '', {orders}, 0)"
+            )
+        
+        conn.commit()
+        cur.close()
+        conn.close()
+        print(f"Updated orders: {employee} on {date} = {orders}")
+        return True
+    except Exception as e:
+        print(f"Error updating orders: {e}")
+        return False
+
+
+def update_bonus_in_db(date: str, bonus: int) -> bool:
+    '''Обновить доплату за заказ для всей даты'''
+    conn = get_db_connection()
+    if not conn:
+        return False
+    
+    try:
+        cur = conn.cursor()
+        cur.execute(f"UPDATE schedule SET bonus = {bonus} WHERE date = '{date}'")
+        
+        if cur.rowcount == 0:
+            for emp in ['Никита', 'Андрей', 'Денис']:
+                cur.execute(
+                    f"INSERT INTO schedule (date, employee, shift1_start, shift1_end, has_shift2, "
+                    f"shift2_start, shift2_end, orders, bonus) "
+                    f"VALUES ('{date}', '{emp}', '', '', false, '', '', 0, {bonus})"
+                )
+        
+        conn.commit()
+        cur.close()
+        conn.close()
+        print(f"Updated bonus for {date} = {bonus}")
+        return True
+    except Exception as e:
+        print(f"Error updating bonus: {e}")
+        return False
+
+
+def delete_shift_from_db(employee: str, date: str) -> bool:
+    '''Удалить смену'''
+    conn = get_db_connection()
+    if not conn:
+        return False
+    
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            f"UPDATE schedule SET shift1_start = '', shift1_end = '', "
+            f"shift2_start = '', shift2_end = '', has_shift2 = false "
+            f"WHERE employee = '{employee}' AND date = '{date}'"
+        )
+        conn.commit()
+        cur.close()
+        conn.close()
+        print(f"Deleted shift: {employee} on {date}")
+        return True
+    except Exception as e:
+        print(f"Error deleting shift: {e}")
+        return False
+
+
+def calculate_day_salary_from_row(row) -> float:
+    '''Расчёт зарплаты за день из строки БД'''
+    shift1_start = row[2] if len(row) > 2 else ''
+    shift1_end = row[3] if len(row) > 3 else ''
+    has_shift2 = row[4] if len(row) > 4 else False
+    shift2_start = row[5] if len(row) > 5 else ''
+    shift2_end = row[6] if len(row) > 6 else ''
+    orders = row[7] if len(row) > 7 else 0
+    bonus = row[8] if len(row) > 8 else 0
+    
+    hours1 = calculate_hours(shift1_start, shift1_end)
+    hours2 = calculate_hours(shift2_start, shift2_end) if has_shift2 else 0
+    total_hours = hours1 + hours2
+    return (total_hours * 250) + (orders * (50 + bonus))
 
 
 def show_schedule_smart(chat_id: int, user: dict):
