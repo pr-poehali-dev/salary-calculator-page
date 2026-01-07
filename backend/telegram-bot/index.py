@@ -223,10 +223,9 @@ def handle_smart_message(chat_id: int, text: str, user: dict, message: dict):
         show_team_stats(chat_id)
         return
     
-    if any(word in text_lower for word in ['сколько', 'как долго', 'во сколько']):
-        if any(name in text_lower for name in ['никит', 'андр', 'денис']) and any(time_word in text_lower for time_word in ['сегодня', 'завтра', 'работает', 'смен']):
-            show_employee_day_info(chat_id, text_lower)
-            return
+    employee_question_result = handle_employee_time_question(chat_id, text_lower, user)
+    if employee_question_result:
+        return
     
     if any(word in text_lower for word in ['зарплата', 'заработ', 'деньги', 'выплата']):
         if is_group:
@@ -963,20 +962,75 @@ def get_bot_username() -> str:
     return ''
 
 
-def show_employee_day_info(chat_id: int, text_lower: str):
+def handle_employee_time_question(chat_id: int, text_lower: str, user: dict) -> bool:
+    '''Обрабатывает вопросы о времени работы сотрудников'''
+    
+    time_keywords = [
+        'сколько', 'как долго', 'во сколько', 'до скольки', 'когда',
+        'приедет', 'вернется', 'закончит', 'начнет', 'работает',
+        'смен', 'домой', 'в курсе'
+    ]
+    
+    if not any(keyword in text_lower for keyword in time_keywords):
+        return False
+    
+    target_employee = extract_employee_name(text_lower, user)
+    if not target_employee:
+        return False
+    
+    show_employee_day_info(chat_id, text_lower, target_employee)
+    return True
+
+
+def extract_employee_name(text_lower: str, user: dict) -> str:
+    '''Извлекает имя сотрудника из текста или контекста'''
+    
+    if 'никит' in text_lower:
+        return 'Никита'
+    elif 'андр' in text_lower:
+        return 'Андрей'
+    elif 'денис' in text_lower:
+        return 'Денис'
+    
+    pronoun_keywords = ['он', 'его', 'ему', 'им', 'она', 'её', 'ей']
+    if any(pronoun in text_lower for pronoun in pronoun_keywords):
+        conn = get_db_connection()
+        if not conn:
+            return None
+        
+        try:
+            cur = conn.cursor(cursor_factory=RealDictCursor)
+            today = datetime.now().strftime('%Y-%m-%d')
+            cur.execute(f"SELECT employee FROM schedule WHERE date = '{today}' AND shift1_start IS NOT NULL AND shift1_start != '' ORDER BY employee")
+            working_today = [row['employee'] for row in cur.fetchall()]
+            cur.close()
+            conn.close()
+            
+            if len(working_today) == 1:
+                return working_today[0]
+            elif len(working_today) > 1:
+                return working_today[0]
+        except:
+            pass
+    
+    return None
+
+
+def show_employee_day_info(chat_id: int, text_lower: str, target_employee: str = None):
     '''Показать информацию про конкретного сотрудника на день'''
     conn = get_db_connection()
     if not conn:
         send_message(chat_id, "❌ Не могу подключиться к базе")
         return
     
-    target_employee = None
-    if 'никит' in text_lower:
-        target_employee = 'Никита'
-    elif 'андр' in text_lower:
-        target_employee = 'Андрей'
-    elif 'денис' in text_lower:
-        target_employee = 'Денис'
+    if not target_employee:
+        target_employee = None
+        if 'никит' in text_lower:
+            target_employee = 'Никита'
+        elif 'андр' in text_lower:
+            target_employee = 'Андрей'
+        elif 'денис' in text_lower:
+            target_employee = 'Денис'
     
     if not target_employee:
         send_message(chat_id, "Не понял, про кого ты спрашиваешь? 🤔")
@@ -996,6 +1050,8 @@ def show_employee_day_info(chat_id: int, text_lower: str):
         
         if not shift or not shift['shift1_start']:
             send_message(chat_id, f"📅 {target_date.strftime('%d.%m.%Y')} ({weekday})\n\n{target_employee} не работает 🏖")
+            cur.close()
+            conn.close()
             return
         
         hours = calculate_hours(shift['shift1_start'], shift['shift1_end'])
@@ -1006,8 +1062,15 @@ def show_employee_day_info(chat_id: int, text_lower: str):
         
         emoji = {'Никита': '👨‍💼', 'Андрей': '🧑‍💻', 'Денис': '👨‍🔧'}.get(target_employee, '👤')
         
+        is_question_about_end = any(word in text_lower for word in ['до скольки', 'когда приедет', 'когда закончит', 'вернется', 'домой'])
+        
         text = f"{emoji} <b>{target_employee}</b>\n"
         text += f"📅 {target_date.strftime('%d.%m.%Y')} ({weekday})\n\n"
+        
+        if is_question_about_end:
+            end_time = shift['shift2_end'] if shift['has_shift2'] else shift['shift1_end']
+            text += f"🏁 Работает <b>до {end_time}</b>\n\n"
+        
         text += f"⏰ {shift['shift1_start']} - {shift['shift1_end']}"
         if shift['has_shift2']:
             text += f" + {shift['shift2_start']}-{shift['shift2_end']}"
@@ -1021,6 +1084,8 @@ def show_employee_day_info(chat_id: int, text_lower: str):
     
     except Exception as e:
         print(f"Error showing employee day info: {e}")
+        import traceback
+        print(traceback.format_exc())
         send_message(chat_id, "❌ Ошибка при загрузке информации")
 
 
