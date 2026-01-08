@@ -1705,6 +1705,8 @@ def parse_employee_management(chat_id: int, text_lower: str, user: dict) -> bool
     
     if not has_employee_keyword:
         conn = get_db_connection()
+        active_employees = []
+        
         if conn:
             try:
                 cur = conn.cursor(cursor_factory=RealDictCursor)
@@ -1712,46 +1714,49 @@ def parse_employee_management(chat_id: int, text_lower: str, user: dict) -> bool
                 active_employees = [row['full_name'] for row in cur.fetchall()]
                 cur.close()
                 conn.close()
-                
-                name_found = None
-                for emp_name in active_employees:
-                    name_lower = emp_name.lower()
-                    first_name = name_lower.split()[0] if name_lower else ''
-                    
-                    if name_lower in text_lower or first_name in text_lower:
-                        name_found = emp_name
-                        break
-                
-                if name_found:
-                    if any(keyword in text_lower for keyword in add_keywords):
-                        send_message(chat_id,
-                            "👤 <b>Добавление сотрудника</b>\n\n"
-                            "Для добавления используй команду:\n"
-                            "<code>/employees add ФИО пароль</code>\n\n"
-                            "Пример:\n"
-                            "<code>/employees add Иванов Иван Иванович admin123</code>\n\n"
-                            "🔒 Дефолтный пароль: <code>admin123</code>")
-                        return True
-                    
-                    if any(keyword in text_lower for keyword in remove_keywords):
-                        send_message(chat_id,
-                            f"👤 <b>Удаление: {name_found}</b>\n\n"
-                            f"Для удаления используй команду:\n"
-                            f"<code>/employees remove {name_found} admin123</code>\n\n"
-                            f"🔒 Дефолтный пароль: <code>admin123</code>")
-                        return True
-                    
-                    if any(keyword in text_lower for keyword in edit_keywords):
-                        send_message(chat_id,
-                            f"✏️ <b>Редактирование: {name_found}</b>\n\n"
-                            f"Для изменения ФИО используй команду:\n"
-                            f"<code>/employees edit {name_found} | Новое ФИО | admin123</code>\n\n"
-                            f"Пример:\n"
-                            f"<code>/employees edit {name_found} | Иванов Иван Петрович | admin123</code>\n\n"
-                            f"🔒 Дефолтный пароль: <code>admin123</code>")
-                        return True
             except:
                 pass
+        
+        if not active_employees:
+            active_employees = ['Никита', 'Андрей', 'Денис']
+        
+        name_found = None
+        for emp_name in active_employees:
+            name_lower = emp_name.lower()
+            first_name = name_lower.split()[0] if name_lower else ''
+            
+            if name_lower in text_lower or first_name in text_lower:
+                name_found = emp_name
+                break
+        
+        if name_found:
+            if any(keyword in text_lower for keyword in add_keywords):
+                send_message(chat_id,
+                    "👤 <b>Добавление сотрудника</b>\n\n"
+                    "Для добавления используй команду:\n"
+                    "<code>/employees add ФИО пароль</code>\n\n"
+                    "Пример:\n"
+                    "<code>/employees add Иванов Иван Иванович admin123</code>\n\n"
+                    "🔒 Дефолтный пароль: <code>admin123</code>")
+                return True
+            
+            if any(keyword in text_lower for keyword in remove_keywords):
+                send_message(chat_id,
+                    f"👤 <b>Удаление: {name_found}</b>\n\n"
+                    f"Для удаления используй команду:\n"
+                    f"<code>/employees remove {name_found} admin123</code>\n\n"
+                    f"🔒 Дефолтный пароль: <code>admin123</code>")
+                return True
+            
+            if any(keyword in text_lower for keyword in edit_keywords):
+                send_message(chat_id,
+                    f"✏️ <b>Редактирование: {name_found}</b>\n\n"
+                    f"Для изменения ФИО используй команду:\n"
+                    f"<code>/employees edit {name_found} | Новое ФИО | admin123</code>\n\n"
+                    f"Пример:\n"
+                    f"<code>/employees edit {name_found} | Иванов Иван Петрович | admin123</code>\n\n"
+                    f"🔒 Дефолтный пароль: <code>admin123</code>")
+                return True
     
     return False
 
