@@ -196,6 +196,10 @@ def handle_message(message: dict):
         show_name_menu(chat_id, user)
         return
     
+    if text.startswith('/employees') or text.startswith('/staff'):
+        handle_employees_command(chat_id, text, user)
+        return
+    
     handle_smart_message(chat_id, text, user, message)
 
 
@@ -1585,3 +1589,182 @@ def send_daily_summary():
         print(f"Error sending daily summary: {e}")
         import traceback
         print(traceback.format_exc())
+
+
+def handle_employees_command(chat_id: int, text: str, user: dict):
+    '''Обработка команд управления сотрудниками'''
+    text_parts = text.split()
+    
+    if len(text_parts) == 1:
+        show_employees_list(chat_id)
+        return
+    
+    command = text_parts[1].lower()
+    
+    if command in ['add', 'добавить']:
+        if len(text_parts) < 4:
+            send_message(chat_id, 
+                "❌ Неверный формат\n\n"
+                "Используй: /employees add <ФИО> <пароль>\n"
+                "Пример: /employees add Иванов Иван Иванович admin123")
+            return
+        
+        password = text_parts[-1]
+        full_name = ' '.join(text_parts[2:-1])
+        add_employee_via_bot(chat_id, full_name, password)
+    
+    elif command in ['remove', 'delete', 'удалить']:
+        if len(text_parts) < 4:
+            send_message(chat_id,
+                "❌ Неверный формат\n\n"
+                "Используй: /employees remove <ФИО> <пароль>\n"
+                "Пример: /employees remove Иванов Иван Иванович admin123")
+            return
+        
+        password = text_parts[-1]
+        full_name = ' '.join(text_parts[2:-1])
+        remove_employee_via_bot(chat_id, full_name, password)
+    
+    elif command in ['list', 'список']:
+        show_employees_list(chat_id)
+    
+    else:
+        send_message(chat_id,
+            "❓ Неизвестная команда\n\n"
+            "Доступные команды:\n"
+            "• /employees list - список сотрудников\n"
+            "• /employees add <ФИО> <пароль> - добавить\n"
+            "• /employees remove <ФИО> <пароль> - удалить")
+
+
+def show_employees_list(chat_id: int):
+    '''Показать список всех сотрудников'''
+    api_url = 'https://functions.poehali.dev/0247f5a1-41c0-407e-9948-e4860da84bbe'
+    
+    try:
+        response = requests.get(api_url, timeout=10)
+        
+        if response.status_code != 200:
+            send_message(chat_id, "❌ Ошибка при загрузке списка сотрудников")
+            return
+        
+        data = response.json()
+        employees = data.get('employees', [])
+        
+        if not employees:
+            send_message(chat_id, "📋 Список сотрудников пуст")
+            return
+        
+        active = [e for e in employees if e['is_active']]
+        inactive = [e for e in employees if not e['is_active']]
+        
+        text = f"👥 <b>Сотрудники ({len(active)}/15 активных)</b>\n\n"
+        
+        if active:
+            text += "<b>✅ Активные:</b>\n"
+            for i, emp in enumerate(active, 1):
+                tg_info = f" | TG: {emp['telegram_id']}" if emp['telegram_id'] else ""
+                text += f"{i}. {emp['full_name']}{tg_info}\n"
+        
+        if inactive:
+            text += f"\n<b>❌ Удалённые ({len(inactive)}):</b>\n"
+            for emp in inactive[:5]:
+                text += f"• {emp['full_name']}\n"
+        
+        text += "\n━━━━━━━━━━━━━━━\n"
+        text += "💡 Управление:\n"
+        text += "• /employees add <ФИО> <пароль>\n"
+        text += "• /employees remove <ФИО> <пароль>"
+        
+        send_message(chat_id, text)
+    
+    except Exception as e:
+        print(f"Error showing employees: {e}")
+        send_message(chat_id, "❌ Ошибка при загрузке данных")
+
+
+def add_employee_via_bot(chat_id: int, full_name: str, password: str):
+    '''Добавить сотрудника через бота'''
+    api_url = 'https://functions.poehali.dev/0247f5a1-41c0-407e-9948-e4860da84bbe'
+    
+    try:
+        response = requests.post(
+            api_url,
+            json={'full_name': full_name, 'password': password},
+            timeout=10
+        )
+        
+        data = response.json()
+        
+        if response.status_code == 403:
+            send_message(chat_id, "🔒 <b>Неверный пароль администратора</b>")
+            return
+        
+        if response.status_code == 400:
+            error = data.get('error', 'Ошибка валидации')
+            send_message(chat_id, f"❌ {error}")
+            return
+        
+        if response.status_code == 201:
+            employee = data.get('employee', {})
+            text = (
+                "✅ <b>Сотрудник добавлен!</b>\n\n"
+                f"👤 ФИО: {employee['full_name']}\n"
+                f"🆔 ID: {employee['id']}\n\n"
+                "Теперь он может использовать команду /setname в боте "
+                "для привязки своего Telegram аккаунта."
+            )
+            send_message(chat_id, text)
+            return
+        
+        send_message(chat_id, "❌ Неизвестная ошибка при добавлении")
+    
+    except Exception as e:
+        print(f"Error adding employee: {e}")
+        send_message(chat_id, "❌ Ошибка при добавлении сотрудника")
+
+
+def remove_employee_via_bot(chat_id: int, full_name: str, password: str):
+    '''Удалить сотрудника через бота'''
+    api_url = 'https://functions.poehali.dev/0247f5a1-41c0-407e-9948-e4860da84bbe'
+    
+    try:
+        response = requests.get(api_url, timeout=10)
+        if response.status_code != 200:
+            send_message(chat_id, "❌ Не могу получить список сотрудников")
+            return
+        
+        employees = response.json().get('employees', [])
+        target = next((e for e in employees if e['full_name'] == full_name and e['is_active']), None)
+        
+        if not target:
+            send_message(chat_id, f"❌ Сотрудник '{full_name}' не найден или уже удалён")
+            return
+        
+        response = requests.delete(
+            api_url,
+            json={'id': target['id'], 'password': password},
+            timeout=10
+        )
+        
+        data = response.json()
+        
+        if response.status_code == 403:
+            send_message(chat_id, "🔒 <b>Неверный пароль администратора</b>")
+            return
+        
+        if response.status_code == 200:
+            text = (
+                "✅ <b>Сотрудник удалён</b>\n\n"
+                f"👤 ФИО: {full_name}\n"
+                f"🆔 ID: {target['id']}\n\n"
+                "Данные сохранены в архиве."
+            )
+            send_message(chat_id, text)
+            return
+        
+        send_message(chat_id, f"❌ Ошибка: {data.get('error', 'Неизвестная ошибка')}")
+    
+    except Exception as e:
+        print(f"Error removing employee: {e}")
+        send_message(chat_id, "❌ Ошибка при удалении сотрудника")

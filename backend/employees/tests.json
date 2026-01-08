@@ -1,0 +1,23 @@
+{
+  "tests": [
+    {
+      "name": "Get all employees",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 200
+    },
+    {
+      "name": "Add employee without password",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "full_name": "Тестовый Сотрудник"
+      },
+      "expectedStatus": 403,
+      "expectedBody": {
+        "error": "string"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}
