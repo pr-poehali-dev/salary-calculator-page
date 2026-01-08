@@ -23,9 +23,11 @@ export default function Employees() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const [formData, setFormData] = useState({ full_name: '', password: '' });
+  const [editFormData, setEditFormData] = useState({ full_name: '', password: '' });
   const [deletePassword, setDeletePassword] = useState('');
   const { toast } = useToast();
 
@@ -183,6 +185,84 @@ export default function Employees() {
     }
   };
 
+  const handleEditEmployee = async () => {
+    if (!selectedEmployee) return;
+
+    if (!editFormData.full_name.trim()) {
+      toast({
+        title: 'Ошибка',
+        description: 'Введите новое ФИО',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (!editFormData.password) {
+      toast({
+        title: 'Ошибка',
+        description: 'Введите пароль администратора',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      const response = await fetch(API_URL, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: selectedEmployee.id,
+          full_name: editFormData.full_name,
+          password: editFormData.password,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.status === 403) {
+        toast({
+          title: 'Доступ запрещён',
+          description: 'Неверный пароль администратора',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      if (response.status === 400) {
+        toast({
+          title: 'Ошибка',
+          description: data.error || 'Ошибка валидации',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      if (response.status === 200) {
+        toast({
+          title: 'Успешно',
+          description: `ФИО изменено на ${editFormData.full_name}`,
+        });
+        setEditDialogOpen(false);
+        setSelectedEmployee(null);
+        setEditFormData({ full_name: '', password: '' });
+        loadEmployees();
+        return;
+      }
+
+      toast({
+        title: 'Ошибка',
+        description: data.error || 'Не удалось изменить ФИО',
+        variant: 'destructive',
+      });
+    } catch (error) {
+      toast({
+        title: 'Ошибка',
+        description: 'Не удалось изменить ФИО',
+        variant: 'destructive',
+      });
+    }
+  };
+
   const activeEmployees = employees.filter(e => e.is_active);
   const inactiveEmployees = employees.filter(e => !e.is_active);
 
@@ -192,7 +272,7 @@ export default function Employees() {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-4xl font-bold text-gray-900 mb-2">Управление сотрудниками</h1>
-            <p className="text-gray-600">Добавляйте и удаляйте до 15 сотрудников</p>
+            <p className="text-gray-600">Добавляйте, редактируйте и удаляйте до 15 сотрудников</p>
           </div>
           <Button onClick={() => setDialogOpen(true)} size="lg" disabled={activeEmployees.length >= 15}>
             <Icon name="UserPlus" className="mr-2" size={20} />
@@ -244,18 +324,33 @@ export default function Employees() {
                           </div>
                         </div>
                       </div>
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        className="w-full mt-3"
-                        onClick={() => {
-                          setSelectedEmployee(employee);
-                          setDeleteDialogOpen(true);
-                        }}
-                      >
-                        <Icon name="Trash2" className="mr-2" size={16} />
-                        Удалить
-                      </Button>
+                      <div className="flex gap-2 mt-3">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1"
+                          onClick={() => {
+                            setSelectedEmployee(employee);
+                            setEditFormData({ full_name: employee.full_name, password: '' });
+                            setEditDialogOpen(true);
+                          }}
+                        >
+                          <Icon name="Edit" className="mr-2" size={16} />
+                          Изменить
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          className="flex-1"
+                          onClick={() => {
+                            setSelectedEmployee(employee);
+                            setDeleteDialogOpen(true);
+                          }}
+                        >
+                          <Icon name="Trash2" className="mr-2" size={16} />
+                          Удалить
+                        </Button>
+                      </div>
                     </CardContent>
                   </Card>
                 ))}
@@ -318,6 +413,45 @@ export default function Employees() {
                 Отмена
               </Button>
               <Button onClick={handleAddEmployee}>Добавить</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Изменить ФИО сотрудника</DialogTitle>
+              <DialogDescription>
+                Редактирование: {selectedEmployee?.full_name}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="edit_full_name">Новое ФИО</Label>
+                <Input
+                  id="edit_full_name"
+                  placeholder="Иванов Иван Иванович"
+                  value={editFormData.full_name}
+                  onChange={(e) => setEditFormData({ ...editFormData, full_name: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit_password">Пароль администратора</Label>
+                <Input
+                  id="edit_password"
+                  type="password"
+                  placeholder="Введите пароль"
+                  value={editFormData.password}
+                  onChange={(e) => setEditFormData({ ...editFormData, password: e.target.value })}
+                />
+                <p className="text-sm text-gray-500 mt-1">Дефолтный пароль: admin123</p>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
+                Отмена
+              </Button>
+              <Button onClick={handleEditEmployee}>Сохранить</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

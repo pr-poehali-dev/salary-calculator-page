@@ -1600,6 +1600,7 @@ def parse_employee_management(chat_id: int, text_lower: str, user: dict) -> bool
     
     add_keywords = ['добав', 'нов', 'приня', 'взя', 'устро']
     remove_keywords = ['удал', 'убер', 'выгна', 'увол']
+    edit_keywords = ['измен', 'редакт', 'переимен', 'исправ', 'смени имя', 'смени фио']
     list_keywords = ['список сотрудник', 'все сотрудник', 'покажи сотрудник']
     
     if any(keyword in text_lower for keyword in list_keywords):
@@ -1658,6 +1659,48 @@ def parse_employee_management(chat_id: int, text_lower: str, user: dict) -> bool
         
         return True
     
+    if any(keyword in text_lower for keyword in edit_keywords) and 'сотрудник' in text_lower:
+        name_match = None
+        conn = get_db_connection()
+        
+        if conn:
+            try:
+                cur = conn.cursor(cursor_factory=RealDictCursor)
+                cur.execute("SELECT full_name FROM employees WHERE is_active = true ORDER BY full_name")
+                active_employees = [row['full_name'] for row in cur.fetchall()]
+                cur.close()
+                conn.close()
+                
+                for emp_name in active_employees:
+                    name_lower = emp_name.lower()
+                    first_name = name_lower.split()[0] if name_lower else ''
+                    
+                    if name_lower in text_lower or first_name in text_lower:
+                        name_match = emp_name
+                        break
+            except:
+                pass
+        
+        if name_match:
+            send_message(chat_id,
+                f"✏️ <b>Редактирование сотрудника: {name_match}</b>\n\n"
+                f"Для изменения ФИО используй команду:\n"
+                f"<code>/employees edit {name_match} | Новое ФИО | пароль</code>\n\n"
+                f"Пример:\n"
+                f"<code>/employees edit {name_match} | Иванов Иван Петрович | admin123</code>\n\n"
+                f"🔒 Дефолтный пароль: <code>admin123</code>")
+        else:
+            send_message(chat_id,
+                "❌ Не могу определить какого сотрудника редактировать\n\n"
+                "Используй команду:\n"
+                "<code>/employees edit Старое ФИО | Новое ФИО | пароль</code>\n\n"
+                "Пример:\n"
+                "<code>/employees edit Иванов И.И. | Иванов Иван Иванович | admin123</code>\n\n"
+                "Или сначала посмотри список:\n"
+                "<code>/employees list</code>")
+        
+        return True
+    
     return False
 
 
@@ -1698,12 +1741,35 @@ def handle_employees_command(chat_id: int, text: str, user: dict):
     elif command in ['list', 'список']:
         show_employees_list(chat_id)
     
+    elif command in ['edit', 'редактировать', 'изменить']:
+        if '|' not in text:
+            send_message(chat_id,
+                "❌ Неверный формат\n\n"
+                "Используй: /employees edit <Старое ФИО> | <Новое ФИО> | <пароль>\n"
+                "Пример: /employees edit Иванов И.И. | Иванов Иван Иванович | admin123")
+            return
+        
+        parts = text.split('|')
+        if len(parts) != 3:
+            send_message(chat_id,
+                "❌ Неверный формат\n\n"
+                "Используй разделитель | между полями:\n"
+                "/employees edit <Старое ФИО> | <Новое ФИО> | <пароль>")
+            return
+        
+        old_name = parts[0].replace('/employees edit', '').replace('/employees изменить', '').strip()
+        new_name = parts[1].strip()
+        password = parts[2].strip()
+        
+        edit_employee_via_bot(chat_id, old_name, new_name, password)
+    
     else:
         send_message(chat_id,
             "❓ Неизвестная команда\n\n"
             "Доступные команды:\n"
             "• /employees list - список сотрудников\n"
             "• /employees add <ФИО> <пароль> - добавить\n"
+            "• /employees edit <Старое ФИО> | <Новое ФИО> | <пароль> - изменить\n"
             "• /employees remove <ФИО> <пароль> - удалить")
 
 
@@ -1838,3 +1904,58 @@ def remove_employee_via_bot(chat_id: int, full_name: str, password: str):
     except Exception as e:
         print(f"Error removing employee: {e}")
         send_message(chat_id, "❌ Ошибка при удалении сотрудника")
+
+
+def edit_employee_via_bot(chat_id: int, old_name: str, new_name: str, password: str):
+    '''Изменить ФИО сотрудника через бота'''
+    api_url = 'https://functions.poehali.dev/0247f5a1-41c0-407e-9948-e4860da84bbe'
+    
+    try:
+        response = requests.get(api_url, timeout=10)
+        if response.status_code != 200:
+            send_message(chat_id, "❌ Не могу получить список сотрудников")
+            return
+        
+        employees = response.json().get('employees', [])
+        target = next((e for e in employees if e['full_name'] == old_name and e['is_active']), None)
+        
+        if not target:
+            send_message(chat_id, f"❌ Сотрудник '{old_name}' не найден или удалён")
+            return
+        
+        response = requests.put(
+            api_url,
+            json={
+                'id': target['id'],
+                'full_name': new_name,
+                'password': password
+            },
+            timeout=10
+        )
+        
+        data = response.json()
+        
+        if response.status_code == 403:
+            send_message(chat_id, "🔒 <b>Неверный пароль администратора</b>")
+            return
+        
+        if response.status_code == 400:
+            error = data.get('error', 'Ошибка валидации')
+            send_message(chat_id, f"❌ {error}")
+            return
+        
+        if response.status_code == 200:
+            text = (
+                "✅ <b>ФИО изменено</b>\n\n"
+                f"👤 Было: {old_name}\n"
+                f"✏️ Стало: {new_name}\n"
+                f"🆔 ID: {target['id']}"
+            )
+            send_message(chat_id, text)
+            return
+        
+        send_message(chat_id, f"❌ Ошибка: {data.get('error', 'Неизвестная ошибка')}")
+    
+    except Exception as e:
+        print(f"Error editing employee: {e}")
+        send_message(chat_id, "❌ Ошибка при редактировании сотрудника")
