@@ -208,6 +208,10 @@ def handle_smart_message(chat_id: int, text: str, user: dict, message: dict):
     text_lower = text.lower()
     is_group = message['chat']['type'] in ['group', 'supergroup']
     
+    employee_management_result = parse_employee_management(chat_id, text_lower, user)
+    if employee_management_result:
+        return
+    
     complex_result = parse_complex_command(text, user, chat_id)
     if complex_result:
         return
@@ -1589,6 +1593,72 @@ def send_daily_summary():
         print(f"Error sending daily summary: {e}")
         import traceback
         print(traceback.format_exc())
+
+
+def parse_employee_management(chat_id: int, text_lower: str, user: dict) -> bool:
+    '''Умный парсинг команд управления сотрудниками'''
+    
+    add_keywords = ['добав', 'нов', 'приня', 'взя', 'устро']
+    remove_keywords = ['удал', 'убер', 'выгна', 'увол']
+    list_keywords = ['список сотрудник', 'все сотрудник', 'покажи сотрудник']
+    
+    if any(keyword in text_lower for keyword in list_keywords):
+        show_employees_list(chat_id)
+        return True
+    
+    if any(keyword in text_lower for keyword in add_keywords) and 'сотрудник' in text_lower:
+        send_message(chat_id,
+            "👤 <b>Добавление сотрудника</b>\n\n"
+            "Для добавления используй команду:\n"
+            "<code>/employees add ФИО пароль</code>\n\n"
+            "Пример:\n"
+            "<code>/employees add Иванов Иван Иванович admin123</code>\n\n"
+            "🔒 Дефолтный пароль: <code>admin123</code>")
+        return True
+    
+    if any(keyword in text_lower for keyword in remove_keywords) and 'сотрудник' in text_lower:
+        name_match = None
+        conn = get_db_connection()
+        
+        if conn:
+            try:
+                cur = conn.cursor(cursor_factory=RealDictCursor)
+                cur.execute("SELECT full_name FROM employees WHERE is_active = true ORDER BY full_name")
+                active_employees = [row['full_name'] for row in cur.fetchall()]
+                cur.close()
+                conn.close()
+                
+                for emp_name in active_employees:
+                    name_lower = emp_name.lower()
+                    first_name = name_lower.split()[0] if name_lower else ''
+                    
+                    if name_lower in text_lower or first_name in text_lower:
+                        name_match = emp_name
+                        break
+            except:
+                pass
+        
+        if name_match:
+            send_message(chat_id,
+                f"👤 <b>Удаление сотрудника: {name_match}</b>\n\n"
+                f"Для удаления используй команду:\n"
+                f"<code>/employees remove {name_match} пароль</code>\n\n"
+                f"Пример:\n"
+                f"<code>/employees remove {name_match} admin123</code>\n\n"
+                f"🔒 Дефолтный пароль: <code>admin123</code>")
+        else:
+            send_message(chat_id,
+                "❌ Не могу определить какого сотрудника удалить\n\n"
+                "Используй команду:\n"
+                "<code>/employees remove ФИО пароль</code>\n\n"
+                "Пример:\n"
+                "<code>/employees remove Иванов Иван Иванович admin123</code>\n\n"
+                "Или сначала посмотри список:\n"
+                "<code>/employees list</code>")
+        
+        return True
+    
+    return False
 
 
 def handle_employees_command(chat_id: int, text: str, user: dict):
