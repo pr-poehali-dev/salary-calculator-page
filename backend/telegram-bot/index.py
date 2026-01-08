@@ -1598,16 +1598,18 @@ def send_daily_summary():
 def parse_employee_management(chat_id: int, text_lower: str, user: dict) -> bool:
     '''Умный парсинг команд управления сотрудниками'''
     
-    add_keywords = ['добав', 'нов', 'приня', 'взя', 'устро']
-    remove_keywords = ['удал', 'убер', 'выгна', 'увол']
+    add_keywords = ['добав', 'нов', 'приня', 'взя', 'устро', 'найм', 'зарегистр']
+    remove_keywords = ['удал', 'убер', 'выгна', 'увол', 'исключ', 'выкин']
     edit_keywords = ['измен', 'редакт', 'переимен', 'исправ', 'смени имя', 'смени фио']
     list_keywords = ['список сотрудник', 'все сотрудник', 'покажи сотрудник']
+    
+    has_employee_keyword = 'сотрудник' in text_lower or 'курьер' in text_lower or 'работник' in text_lower
     
     if any(keyword in text_lower for keyword in list_keywords):
         show_employees_list(chat_id)
         return True
     
-    if any(keyword in text_lower for keyword in add_keywords) and 'сотрудник' in text_lower:
+    if any(keyword in text_lower for keyword in add_keywords) and has_employee_keyword:
         send_message(chat_id,
             "👤 <b>Добавление сотрудника</b>\n\n"
             "Для добавления используй команду:\n"
@@ -1617,7 +1619,7 @@ def parse_employee_management(chat_id: int, text_lower: str, user: dict) -> bool
             "🔒 Дефолтный пароль: <code>admin123</code>")
         return True
     
-    if any(keyword in text_lower for keyword in remove_keywords) and 'сотрудник' in text_lower:
+    if any(keyword in text_lower for keyword in remove_keywords) and has_employee_keyword:
         name_match = None
         conn = get_db_connection()
         
@@ -1659,7 +1661,7 @@ def parse_employee_management(chat_id: int, text_lower: str, user: dict) -> bool
         
         return True
     
-    if any(keyword in text_lower for keyword in edit_keywords) and 'сотрудник' in text_lower:
+    if any(keyword in text_lower for keyword in edit_keywords) and has_employee_keyword:
         name_match = None
         conn = get_db_connection()
         
@@ -1700,6 +1702,56 @@ def parse_employee_management(chat_id: int, text_lower: str, user: dict) -> bool
                 "<code>/employees list</code>")
         
         return True
+    
+    if not has_employee_keyword:
+        conn = get_db_connection()
+        if conn:
+            try:
+                cur = conn.cursor(cursor_factory=RealDictCursor)
+                cur.execute("SELECT full_name FROM employees WHERE is_active = true ORDER BY full_name")
+                active_employees = [row['full_name'] for row in cur.fetchall()]
+                cur.close()
+                conn.close()
+                
+                name_found = None
+                for emp_name in active_employees:
+                    name_lower = emp_name.lower()
+                    first_name = name_lower.split()[0] if name_lower else ''
+                    
+                    if name_lower in text_lower or first_name in text_lower:
+                        name_found = emp_name
+                        break
+                
+                if name_found:
+                    if any(keyword in text_lower for keyword in add_keywords):
+                        send_message(chat_id,
+                            "👤 <b>Добавление сотрудника</b>\n\n"
+                            "Для добавления используй команду:\n"
+                            "<code>/employees add ФИО пароль</code>\n\n"
+                            "Пример:\n"
+                            "<code>/employees add Иванов Иван Иванович admin123</code>\n\n"
+                            "🔒 Дефолтный пароль: <code>admin123</code>")
+                        return True
+                    
+                    if any(keyword in text_lower for keyword in remove_keywords):
+                        send_message(chat_id,
+                            f"👤 <b>Удаление: {name_found}</b>\n\n"
+                            f"Для удаления используй команду:\n"
+                            f"<code>/employees remove {name_found} admin123</code>\n\n"
+                            f"🔒 Дефолтный пароль: <code>admin123</code>")
+                        return True
+                    
+                    if any(keyword in text_lower for keyword in edit_keywords):
+                        send_message(chat_id,
+                            f"✏️ <b>Редактирование: {name_found}</b>\n\n"
+                            f"Для изменения ФИО используй команду:\n"
+                            f"<code>/employees edit {name_found} | Новое ФИО | admin123</code>\n\n"
+                            f"Пример:\n"
+                            f"<code>/employees edit {name_found} | Иванов Иван Петрович | admin123</code>\n\n"
+                            f"🔒 Дефолтный пароль: <code>admin123</code>")
+                        return True
+            except:
+                pass
     
     return False
 
